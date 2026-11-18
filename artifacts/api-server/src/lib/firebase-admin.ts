@@ -1,4 +1,5 @@
 import {
+  applicationDefault,
   cert,
   getApps,
   initializeApp,
@@ -15,6 +16,33 @@ export class FirebaseAdminConfigurationError extends Error {
     super(message);
     this.name = 'FirebaseAdminConfigurationError';
   }
+}
+
+export type FirebaseAdminCredentialMode = 'service-account-json' | 'cloud-run-adc';
+
+export function resolveFirebaseAdminCredentialMode(
+  env: NodeJS.ProcessEnv = process.env,
+): FirebaseAdminCredentialMode {
+  const requestedMode = env.ZIONCORE_2ND_ADMIN_AUTH_MODE;
+  if (requestedMode === 'adc') {
+    if (env.K_SERVICE !== adminAppName) {
+      throw new FirebaseAdminConfigurationError(
+        'ADC mode is permitted only in the ZionCore 2nd Cloud Run service.',
+      );
+    }
+    return 'cloud-run-adc';
+  }
+  if (requestedMode && requestedMode !== 'service-account-json') {
+    throw new FirebaseAdminConfigurationError(
+      'ZIONCORE_2ND_ADMIN_AUTH_MODE must be adc or service-account-json.',
+    );
+  }
+  if (!env.ZIONCORE_2ND_BOOTSTRAP_SERVICE_ACCOUNT_JSON) {
+    throw new FirebaseAdminConfigurationError(
+      'ZIONCORE_2ND_BOOTSTRAP_SERVICE_ACCOUNT_JSON is not configured.',
+    );
+  }
+  return 'service-account-json';
 }
 
 function readServiceAccount(): ServiceAccount {
@@ -73,10 +101,13 @@ export function getFirebaseAdminApp(): App {
     return existing;
   }
 
-  const serviceAccount = readServiceAccount();
+  const mode = resolveFirebaseAdminCredentialMode();
+  const credential = mode === 'cloud-run-adc'
+    ? applicationDefault()
+    : cert(readServiceAccount());
   return initializeApp(
     {
-      credential: cert(serviceAccount),
+      credential,
       projectId: ZIONCORE_2ND_FIREBASE_PROJECT_ID,
     },
     adminAppName,

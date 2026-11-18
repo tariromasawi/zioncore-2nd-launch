@@ -1,6 +1,9 @@
 import type { App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getFirebaseAdminCredentialEmail } from './firebase-admin';
+import {
+  getFirebaseAdminCredentialEmail,
+  resolveFirebaseAdminCredentialMode,
+} from './firebase-admin';
 
 const cleanupCollectionGroup = 'ai_interpretation_jobs';
 const cleanupFieldPath = 'expiresAt';
@@ -148,12 +151,17 @@ export async function runFirebaseDiagnostics(app: App) {
   const generatedAt = new Date().toISOString();
   const projectId = app.options.projectId ?? null;
   const email = getFirebaseAdminCredentialEmail();
+  const credentialMode = resolveFirebaseAdminCredentialMode();
   const credential = {
-    source: 'ZIONCORE_2ND_BOOTSTRAP_SERVICE_ACCOUNT_JSON' as const,
+    source: credentialMode === 'cloud-run-adc'
+      ? 'CLOUD_RUN_APPLICATION_DEFAULT_CREDENTIALS' as const
+      : 'FIREBASE_SERVICE_ACCOUNT_JSON' as const,
     serviceAccountEmail: email,
     projectId,
     databaseId: defaultDatabaseId,
-    status: email && projectId ? 'configured' as const : 'unavailable' as const,
+    status: projectId && (credentialMode === 'cloud-run-adc' || email)
+      ? 'configured' as const
+      : 'unavailable' as const,
   };
   const checkedAt = new Date().toISOString();
 

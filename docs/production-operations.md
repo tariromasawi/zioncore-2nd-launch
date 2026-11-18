@@ -2,13 +2,43 @@
 
 ## Independent host configuration
 
-ZionCore 2nd does not yet have a verified independent production URL. Do not use
-`https://zioncore.replit.app`; that address belongs to the main ZionCore
-application. After an independent host is assigned, set
-`VITE_PUBLIC_SITE_URL` for the web build and `ZIONCORE_2ND_PUBLIC_ORIGIN` for
-the API to that exact HTTPS origin. The production build omits canonical and
-sitemap URLs when the standalone host is unset, and fails if the main site's
-origin is supplied.
+The source now contains a Firebase Hosting + Cloud Run deployment path. The
+intended Firebase Hosting origin is
+`https://zioncore-2nd-production.web.app`, with `/api/**` rewritten to the
+`zioncore-2nd-api` Cloud Run service in `europe-west2`. This is a configured
+target, not a verified live site: the address returned HTTP 404 at the last
+production check. Do not use `https://zioncore.replit.app`, which belongs to
+the main ZionCore application.
+
+The GitHub deployment workflow is manual-only and runs only from `main` after
+the explicit deployment confirmation. It is not run by this source change.
+Before it can run, configure the `zioncore-2nd-production` GitHub environment
+with:
+
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_DEPLOYER_SERVICE_ACCOUNT` for
+  GitHub-to-Google Workload Identity Federation.
+- `ZIONCORE_2ND_RUNTIME_SERVICE_ACCOUNT`, a dedicated Cloud Run identity with
+  only the Firebase Auth/Firestore permissions the API requires and
+  `secretAccessor` on its configured AI secrets.
+- `ZIONCORE_2ND_GEMINI_SECRET_NAME` in Google Secret Manager; optionally
+  `ZIONCORE_2ND_OPENAI_SECRET_NAME` for the fallback provider.
+- `ZIONCORE_2ND_FIREBASE_API_KEY` and `ZIONCORE_2ND_APPCHECK_SITE_KEY` as
+  GitHub environment variables. These are public client values; keep private
+  service credentials in Secret Manager.
+
+The Google deployment identity needs WIF impersonation permission, Cloud Run
+deployment, Cloud Build/Artifact Registry access, Firebase Hosting deployment,
+and permission to attach the runtime service account. Cloud Run, Cloud Build,
+and Firebase Hosting APIs must be enabled, and the Firebase project must have
+an attached billing account before Cloud Run can build or run. This workspace
+did not enable billing, create Google Cloud resources, configure WIF, or deploy.
+
+The initial workflow deliberately leaves Firestore client access, AI
+project-security approval, Google sign-in, Apple sign-in, Stripe checkout,
+premium features, and paid usage disabled. Enable those separately only after
+their corresponding production configuration and browser verification pass.
+The production build omits canonical and sitemap URLs when the standalone host
+is unset, and fails if the main site's origin is supplied.
 
 Before enabling production checkout, add the verified standalone host to the
 ZionCore 2nd Firebase Authentication authorized domains and the production
@@ -47,3 +77,10 @@ billing, and Google Gemini AI. Keep credentials in the independent deployment's
 secret manager and validate every provider after a hosting change. Do not claim
 these services are live until they have been exercised through the deployed
 standalone application.
+
+For Cloud Run, Firebase Admin uses Application Default Credentials only when
+`ZIONCORE_2ND_ADMIN_AUTH_MODE=adc` and the runtime service is
+`zioncore-2nd-api`. The Replit service-account JSON remains supported for the
+existing Replit runtime and is not copied into GitHub or Cloud Run. Direct
+Gemini and OpenAI keys are supported through `GOOGLE_GENAI_API_KEY` and
+`OPENAI_API_KEY`, respectively; inject them from Secret Manager only.

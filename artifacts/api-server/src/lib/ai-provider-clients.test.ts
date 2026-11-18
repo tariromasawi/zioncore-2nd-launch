@@ -6,7 +6,9 @@ import {
   generateWithGeminiAudioSegment,
   getGeminiAnalysisModel,
   getGeminiCredentialSource,
+  getOpenAICredentialSource,
   isGeminiConfigured,
+  isOpenAIConfigured,
   normalizeGeminiUsage,
   GOOGLE_GENAI_ANALYSIS_MODEL,
 } from './ai-provider-clients';
@@ -42,6 +44,26 @@ test('prefers the owner-provided Google API key and validates integration config
     } as NodeJS.ProcessEnv),
     'gemini-3.8-flash',
   );
+});
+
+test('OpenAI provider supports direct keys for standalone hosting and Replit integration keys', () => {
+  assert.equal(
+    getOpenAICredentialSource({ OPENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv),
+    'openai-api-key',
+  );
+  assert.equal(
+    getOpenAICredentialSource({
+      AI_INTEGRATIONS_OPENAI_API_KEY: 'configured',
+      AI_INTEGRATIONS_OPENAI_BASE_URL: 'https://proxy.example',
+    } as NodeJS.ProcessEnv),
+    'replit-integration',
+  );
+  assert.equal(
+    getOpenAICredentialSource({ AI_INTEGRATIONS_OPENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv),
+    'unconfigured',
+  );
+  assert.equal(isOpenAIConfigured({ OPENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv), true);
+  assert.equal(isOpenAIConfigured({} as NodeJS.ProcessEnv), false);
 });
 
 test('estimates provider usage at conservative standard token rates', () => {

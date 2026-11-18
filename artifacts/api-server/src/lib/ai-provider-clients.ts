@@ -9,6 +9,7 @@ export const OPENAI_ANALYSIS_MODEL = 'gpt-5.4-mini';
 export const GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS = 256;
 
 export type GeminiCredentialSource = 'google-api-key' | 'replit-integration' | 'unconfigured';
+export type OpenAICredentialSource = 'openai-api-key' | 'replit-integration' | 'unconfigured';
 
 export function getGeminiCredentialSource(
   env: NodeJS.ProcessEnv = process.env,
@@ -23,6 +24,21 @@ export function getGeminiCredentialSource(
 
 export function isGeminiConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
   return getGeminiCredentialSource(env) !== 'unconfigured';
+}
+
+export function getOpenAICredentialSource(
+  env: NodeJS.ProcessEnv = process.env,
+): OpenAICredentialSource {
+  if (env.OPENAI_API_KEY?.trim()) return 'openai-api-key';
+  if (
+    env.AI_INTEGRATIONS_OPENAI_API_KEY?.trim()
+    && env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim()
+  ) return 'replit-integration';
+  return 'unconfigured';
+}
+
+export function isOpenAIConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return getOpenAICredentialSource(env) !== 'unconfigured';
 }
 
 export function getGeminiAnalysisModel(env: NodeJS.ProcessEnv = process.env): string {
@@ -204,6 +220,9 @@ export async function generateWithOpenAI(
   timeoutMs = PROVIDER_ATTEMPT_TIMEOUT_MS,
 ): Promise<ProviderOutput> {
   return withProviderDeadline(async signal => {
+    if (!isOpenAIConfigured()) {
+      throw new Error('Configure OPENAI_API_KEY or the OpenAI AI integration before using OpenAI.');
+    }
     const { openai } = await import('@workspace/integrations-openai-ai-server');
     const stream = await openai.chat.completions.create({
       model: OPENAI_ANALYSIS_MODEL,

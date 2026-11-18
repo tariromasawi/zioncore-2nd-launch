@@ -33,6 +33,7 @@ export type OwnerFirebaseDiagnosticCredentialSource = typeof OwnerFirebaseDiagno
 
 export const OwnerFirebaseDiagnosticCredentialSource = {
   FIREBASE_SERVICE_ACCOUNT_JSON: 'FIREBASE_SERVICE_ACCOUNT_JSON',
+  CLOUD_RUN_APPLICATION_DEFAULT_CREDENTIALS: 'CLOUD_RUN_APPLICATION_DEFAULT_CREDENTIALS',
 } as const;
 
 export type OwnerFirebaseDiagnosticCredentialStatus = typeof OwnerFirebaseDiagnosticCredentialStatus[keyof typeof OwnerFirebaseDiagnosticCredentialStatus];

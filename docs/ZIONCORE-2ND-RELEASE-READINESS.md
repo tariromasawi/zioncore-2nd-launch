@@ -57,6 +57,36 @@
   selected runtime source.
 - The main ZionCore Firebase project and production application were not
   changed.
+- A manual-only GitHub deployment workflow, Firebase Hosting SPA/API rewrite,
+  Cloud Run container definition, and ADC runtime path are prepared on the
+  deployment branch. They have not been deployed or run against Google Cloud.
+- The deployment workflow keeps checkout, premium access, paid AI usage,
+  Firestore client access, and AI project-security approval disabled by default.
+
+## Independent deployment status
+
+- Target repository: `https://github.com/tariromasawi/zioncore-2nd-launch`
+- Target Firebase project: `zioncore-2nd-production` (`225578874852`)
+- Intended web origin: `https://zioncore-2nd-production.web.app` (not live;
+  returned HTTP 404 at the last check)
+- Intended API: Cloud Run service `zioncore-2nd-api` in `europe-west2`
+- The workflow is manual-only, requires a typed deployment confirmation and
+  must be run from `main`. No Cloud Run or Hosting release was started from the
+  fork.
+- Required GitHub environment variables, WIF provider, deployer/runtime
+  identities, Secret Manager entries, Cloud Run/Cloud Build APIs, and Cloud
+  Billing attachment have not been configured or verified from this workspace.
+- The Firebase public API key and App Check site key are intentionally read from
+  GitHub environment variables, not committed to source. Google and Apple
+  sign-in remain disabled; App Check and live Firestore browser access remain
+  fail-closed until the independent hostname is verified.
+- Cloud Run uses Application Default Credentials only for the named ZionCore
+  2nd service. Direct Gemini/OpenAI key support is included for Secret Manager;
+  the provider secrets and quota/cost controls have not been configured or
+  verified for Cloud Run.
+- The deployment container was not built locally and the workflow was not run;
+  local validation can verify source/build behavior but cannot prove Cloud
+  Build, Firebase Hosting, App Check, or production AI operation.
 
 ## Historical hosting and source-visibility note
 
