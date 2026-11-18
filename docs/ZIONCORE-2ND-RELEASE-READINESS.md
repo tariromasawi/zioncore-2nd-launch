@@ -84,9 +84,14 @@ patterns. This is not a formal security certification.
    text-only `gemini-3.8-flash` reachability check succeeded (7 prompt, 1 output,
    118 thought tokens; no customer data); this did not verify the app's
    authenticated AI route or quota enforcement.
-3. **Business payments:** code and emulator tests exist, but live Stripe
-   catalogue, independent price IDs, webhook delivery, and customer checkout
-   were not tested or changed.
+3. **Business payments:** a read-only live Stripe catalog check confirmed active
+   GBP prices for the app's current supported credit packs (250, 500, 1,050,
+   2,750 and 5,750 credits) and £1/month Premium. Active legacy 50/200/1,000
+   credit products also exist, but the app classifies them as legacy and does
+   not expose them for new checkout. No checkout, webhook fulfillment, or
+   charge was performed. Production checkout remains disabled until separate
+   ZionCore 2nd Stripe credentials, the exact offer set, approved host, and
+   environment gates are configured.
 4. **Independent production API:** the source builds and the Replit preview
    API responds locally; no independent production backend was deployed.
 5. **Live customer and owner journeys:** Email/Password sign-in, persistent
