@@ -1,0 +1,57 @@
+name: ZionCore 2nd validation
+
+on:
+  push:
+    branches:
+      - main
+      - "zioncore-2nd/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zioncore-2nd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+          run_install: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify tracked source integrity manifest
+        run: pnpm run inventory:check
+      - name: Typecheck shared libraries, web and API
+        run: pnpm run typecheck
+      - name: Run web and API unit tests
+        run: |
+          pnpm --filter @workspace/zioncore-frequency-lab run test:unit
+          pnpm --filter @workspace/api-server run test:unit
+      - name: Run Firebase emulator tests
+        run: |
+          pnpm --filter @workspace/scripts run test:genesis
+          pnpm --filter @workspace/zioncore-frequency-lab run test:auth
+          pnpm --filter @workspace/zioncore-frequency-lab run test:rules
+          pnpm --filter @workspace/api-server run test:wallet
+      - name: Build web and API
+        env:
+          PORT: "3000"
+          BASE_PATH: /
+        run: |
+          pnpm --filter @workspace/zioncore-frequency-lab run build
+          pnpm --filter @workspace/api-server run build
