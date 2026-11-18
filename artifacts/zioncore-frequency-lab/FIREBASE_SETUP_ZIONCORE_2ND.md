@@ -110,6 +110,31 @@ chat message.
   no customer data and verified provider reachability only. Application AI
   remains gated until project/provider quotas and usage controls are confirmed.
 
+### Independent deployment configuration audit — 18 November 2026
+
+- The production web App ID above matches the Firebase App Check resource. Its
+  registered reCAPTCHA Enterprise site key allows
+  `zioncore-2nd-production.web.app` and
+  `zioncore-2nd-production.firebaseapp.com`; no site key value is stored in
+  source. This verifies registration and hostname scope, not a live production
+  token exchange.
+- Authentication authorized domains include the two Firebase Hosting hosts and
+  the Replit preview hostname. Email/Password is enabled; Google and Apple are
+  not configured.
+- The GitHub production environment is restricted to `main` and requires the
+  repository owner as reviewer. Its public client variables were populated from
+  this project's verified Firebase configuration. WIF, deployer/runtime
+  identities, and scoped IAM bindings are configured for the guarded workflow.
+- The Cloud Billing API was enabled for read-only status inspection. Billing
+  was already attached (`billingEnabled=true`); its attachment was not changed.
+- Secret Manager contains the ZionCore 2nd Gemini and optional OpenAI secret
+  resources, both with zero enabled versions. Provider credentials were not
+  copied from Replit or written to GitHub. The workflow refuses deployment
+  until the required Gemini version exists.
+- The Hosting site exists but still serves HTTP 404, and no Cloud Run service
+  exists. No application deployment or live production App Check token test has
+  been performed.
+
 ## Data and access boundaries
 
 The browser writes only records matching the observation schema in

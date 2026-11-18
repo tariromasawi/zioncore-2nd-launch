@@ -117,13 +117,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gcloud secrets describe "$ZIONCORE_2ND_GEMINI_SECRET_NAME" \
-            --project "$GCP_PROJECT_ID" >/dev/null
-          if [[ -n "$ZIONCORE_2ND_OPENAI_SECRET_NAME" ]]; then
-            gcloud secrets describe "$ZIONCORE_2ND_OPENAI_SECRET_NAME" \
+          require_enabled_secret_version() {
+            local secret_name="$1"
+            local enabled_version
+            gcloud secrets describe "$secret_name" \
               --project "$GCP_PROJECT_ID" >/dev/null
+            enabled_version="$(gcloud secrets versions list "$secret_name" \
+              --project "$GCP_PROJECT_ID" \
+              --filter="state=ENABLED" \
+              --format="value(name)" \
+              --limit=1)"
+            if [[ -z "$enabled_version" ]]; then
+              echo "Secret ${secret_name} has no enabled version; add its ZionCore 2nd provider key in Secret Manager." >&2
+              exit 1
+            fi
+          }
+
+          require_enabled_secret_version "$ZIONCORE_2ND_GEMINI_SECRET_NAME"
+          if [[ -n "$ZIONCORE_2ND_OPENAI_SECRET_NAME" ]]; then
+            require_enabled_secret_version "$ZIONCORE_2ND_OPENAI_SECRET_NAME"
           fi
-          echo "Required AI secret resources are present; secret values were not read."
+          echo "Required AI secret versions are enabled; secret values were not read."
 
       - name: Deploy the API to Cloud Run
         shell: bash

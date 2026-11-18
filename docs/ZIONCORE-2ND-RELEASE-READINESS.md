@@ -73,13 +73,23 @@
 - The workflow is manual-only, requires a typed deployment confirmation and
   must be run from `main`. No Cloud Run or Hosting release was started from the
   fork.
-- Required GitHub environment variables, WIF provider, deployer/runtime
-  identities, Secret Manager entries, Cloud Run/Cloud Build APIs, and Cloud
-  Billing attachment have not been configured or verified from this workspace.
-- The Firebase public API key and App Check site key are intentionally read from
-  GitHub environment variables, not committed to source. Google and Apple
-  sign-in remain disabled; App Check and live Firestore browser access remain
-  fail-closed until the independent hostname is verified.
+- The GitHub production environment now has an owner reviewer and a `main`-only
+  branch policy. WIF is restricted to this repository's manual deployment
+  workflow on `main`; dedicated deployer/runtime identities and their scoped
+  project/resource permissions are configured.
+- Firebase public API and App Check site keys are stored as GitHub environment
+  variables, not committed to source. The production App ID matches the
+  registered App Check configuration, and the reCAPTCHA key allows only the
+  Firebase Hosting domains. Production-host token exchange remains unverified
+  because the site has not been deployed.
+- Gemini and optional OpenAI Secret Manager resources exist but have no enabled
+  versions. No AI key was copied from Replit. The deployment workflow now stops
+  before deploying if the required key version is absent.
+- Cloud Run, Cloud Build, and Firebase Hosting APIs are enabled. The Cloud
+  Billing API was enabled for inspection, and the project already reports an
+  attached billing account. No billing attachment was changed. Google and Apple
+  sign-in remain disabled; browser Firestore access and paid features remain
+  fail-closed.
 - Cloud Run uses Application Default Credentials only for the named ZionCore
   2nd service. Direct Gemini/OpenAI key support is included for Secret Manager;
   the provider secrets and quota/cost controls have not been configured or

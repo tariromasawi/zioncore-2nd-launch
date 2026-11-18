@@ -12,8 +12,10 @@ the main ZionCore application.
 
 The GitHub deployment workflow is manual-only and runs only from `main` after
 the explicit deployment confirmation. It is not run by this source change.
-Before it can run, configure the `zioncore-2nd-production` GitHub environment
-with:
+The `zioncore-2nd-production` GitHub environment is now configured with a
+required review from the repository owner and a `main`-only deployment branch
+policy. The GitHub Actions variables below were set from the verified Firebase
+project configuration:
 
 - `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_DEPLOYER_SERVICE_ACCOUNT` for
   GitHub-to-Google Workload Identity Federation.
@@ -23,15 +25,36 @@ with:
 - `ZIONCORE_2ND_GEMINI_SECRET_NAME` in Google Secret Manager; optionally
   `ZIONCORE_2ND_OPENAI_SECRET_NAME` for the fallback provider.
 - `ZIONCORE_2ND_FIREBASE_API_KEY` and `ZIONCORE_2ND_APPCHECK_SITE_KEY` as
-  GitHub environment variables. These are public client values; keep private
-  service credentials in Secret Manager.
+  GitHub environment variables. They are public client values; no credential
+  or provider key was added to GitHub.
 
-The Google deployment identity needs WIF impersonation permission, Cloud Run
-deployment, Cloud Build/Artifact Registry access, Firebase Hosting deployment,
-and permission to attach the runtime service account. Cloud Run, Cloud Build,
-and Firebase Hosting APIs must be enabled, and the Firebase project must have
-an attached billing account before Cloud Run can build or run. This workspace
-did not enable billing, create Google Cloud resources, configure WIF, or deploy.
+The WIF pool/provider and dedicated deployer/runtime identities now exist in
+`zioncore-2nd-production`. The provider trusts only the repository's
+`main`-branch manual run of this workflow using the protected GitHub
+environment. The deployer has `roles/run.sourceDeveloper`,
+`roles/serviceusage.serviceUsageConsumer`, and `roles/firebasehosting.admin`.
+It also has `roles/run.admin` because the workflow creates the API as a public
+Cloud Run service for Firebase Hosting rewrites and must set its invoker policy.
+The deployer may attach only the dedicated runtime identity. The Cloud Build
+default compute identity has `roles/run.builder`. The runtime has Firestore/Auth
+roles and `secretAccessor` only on the two ZionCore 2nd AI secret resources.
+
+Both Secret Manager resources exist, but neither has an enabled version. The
+workflow now checks for enabled versions without reading their contents and
+will stop before deployment until a ZionCore 2nd Gemini key is supplied.
+No key was copied from the Replit workspace. The Cloud Billing API was enabled
+only to inspect billing status; the project already reports an attached billing
+account (`billingEnabled=true`). No billing attachment or payment setting was
+changed.
+
+The Firebase Hosting site exists at
+`https://zioncore-2nd-production.web.app`, but it still returns HTTP 404 and
+there is no Cloud Run service. No application deployment was started. Required
+Google and Apple sign-in providers are not yet enabled; Email/Password is
+enabled. The production Firebase App ID and reCAPTCHA Enterprise key match, and
+the key allows the two Firebase Hosting domains. Production token exchange
+cannot be verified until the actual application is deployed, so browser
+Firestore history remains disabled in the deployment configuration.
 
 The initial workflow deliberately leaves Firestore client access, AI
 project-security approval, Google sign-in, Apple sign-in, Stripe checkout,
