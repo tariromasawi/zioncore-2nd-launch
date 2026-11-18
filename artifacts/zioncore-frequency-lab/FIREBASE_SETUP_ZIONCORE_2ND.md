@@ -49,7 +49,8 @@ chat message.
   CLI auth-provider deployment. Email/Password is enabled; a read-only config
   check returned HTTP 200 with `signIn.email.enabled=true`. A temporary
   synthetic account completed sign-up and password sign-in; it was deleted
-  after the check. No persistent test account remains and billing was not enabled.
+  after the check. No persistent test account remains and that test changed no
+  billing settings.
 - With that account's ID token, live Firestore accepted creation and reading of
   its own schema-valid frequency observation, denied a read under another UID,
   and denied a client wallet write. The temporary observation and account were
