@@ -90,13 +90,29 @@
   attached billing account. No billing attachment was changed. Google and Apple
   sign-in remain disabled; browser Firestore access and paid features remain
   fail-closed.
-- Cloud Run uses Application Default Credentials only for the named ZionCore
-  2nd service. Direct Gemini/OpenAI key support is included for Secret Manager;
-  the provider secrets and quota/cost controls have not been configured or
-  verified for Cloud Run.
+- The Cloud Run source uses Application Default Credentials only for the named
+  ZionCore 2nd service, but there is no deployed service on which to verify that
+  runtime path. The Secret Manager entries are empty, and no production AI call
+  has been made.
 - The deployment container was not built locally and the workflow was not run;
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.
+
+## Dependency advisory status
+
+- `pnpm audit --prod` reports no known vulnerabilities in production
+  dependencies.
+- The full development dependency audit reports three moderate advisories
+  inside the Firebase CLI (`firebase-tools@15.36.0`) dependency tree:
+  `glob@10.5.0`, `minimatch@9.0.9`, and `@opentelemetry/core@1.30.1`.
+  `firebase-tools@15.36.0` is the current published version; a blanket major
+  override could break the deployment/emulator CLI, so no unverified override
+  was applied. Recheck when the upstream CLI updates its dependency ranges.
+- GitHub currently lists a high-severity `picomatch@4.0.7` alert on the default
+  branch, but the advisory is marked withdrawn and is absent from the local npm
+  audit result. GitHub also reports the three moderate development-tree alerts.
+  The code-scanning alerts endpoint returned 404; whether code scanning is
+  configured is not verified.
 
 ## Historical hosting and source-visibility note
 
