@@ -665,7 +665,7 @@ export default function WalletPage({
             <p className="zw-journey-note">Recommendations are immediate and do not call an AI provider. Paid interpretation begins only after the current quote is shown and you approve it.</p>
           </section>
           <div className="zw-service-grid">
-            <Link href="/" className="zw-service-card" data-testid="link-wallet-live-lab">
+            <Link href="/lab" className="zw-service-card" data-testid="link-wallet-live-lab">
               <span className="zw-service-kicker">01 / Listen</span>
               <strong className="zw-service-title">Frequency lab</strong>
               <span className="zw-service-copy">Capture or import a signal, inspect its measured features, and request a reading.</span>

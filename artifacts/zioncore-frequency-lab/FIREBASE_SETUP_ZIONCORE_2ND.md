@@ -122,3 +122,12 @@ Cloud IAM and bypasses Firestore Security Rules.
 Run `pnpm --filter @workspace/zioncore-frequency-lab run test:rules` before any
 rules update. This uses the local emulator. The live project must be inspected
 and separately verified after every production rules change.
+
+## Independent production hostname
+
+No independent ZionCore 2nd production hostname has been verified yet. Do not
+add the main ZionCore host `zioncore.replit.app` to this application as a
+substitute. Once the standalone host is available, add only that exact hostname
+to Firebase Authentication authorized domains and the production App Check
+key's allowed hostnames, then verify a real browser token exchange and signed-in
+history flow from that host.

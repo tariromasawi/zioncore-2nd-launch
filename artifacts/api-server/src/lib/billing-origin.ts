@@ -1,7 +1,6 @@
-export const ZIONCORE_PRODUCTION_ORIGIN = 'https://zioncore.replit.app';
-
 export type BillingOriginEnvironment = {
   nodeEnv?: string;
+  productionOrigin?: string;
   replitDomains?: string;
   replitDevDomain?: string;
 };
@@ -20,9 +19,33 @@ export function getTrustedBillingOrigin(
   }
 
   if (environment.nodeEnv === 'production') {
-    return origin.origin === ZIONCORE_PRODUCTION_ORIGIN
-      ? ZIONCORE_PRODUCTION_ORIGIN
-      : null;
+    if (
+      origin.protocol !== 'https:'
+      || origin.username
+      || origin.password
+      || origin.pathname !== '/'
+      || origin.search
+      || origin.hash
+      || !environment.productionOrigin
+    ) return null;
+
+    let approvedOrigin: URL;
+    try {
+      approvedOrigin = new URL(environment.productionOrigin);
+    } catch {
+      return null;
+    }
+    if (
+      approvedOrigin.protocol !== 'https:'
+      || approvedOrigin.username
+      || approvedOrigin.password
+      || approvedOrigin.pathname !== '/'
+      || approvedOrigin.search
+      || approvedOrigin.hash
+      || approvedOrigin.hostname.toLowerCase() === 'zioncore.replit.app'
+    ) return null;
+
+    return origin.origin === approvedOrigin.origin ? approvedOrigin.origin : null;
   }
 
   const isLocalOrigin =

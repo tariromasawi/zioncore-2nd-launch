@@ -1,20 +1,36 @@
-# ZionCore production operations
+# ZionCore 2nd production operations
 
-## Official address
+## Independent host configuration
 
-Use `https://zioncore.replit.app` as the production address. Keep authentication, canonical URLs, social metadata, and Stripe return URLs aligned with this host.
+ZionCore 2nd does not yet have a verified independent production URL. Do not use
+`https://zioncore.replit.app`; that address belongs to the main ZionCore
+application. After an independent host is assigned, set
+`VITE_PUBLIC_SITE_URL` for the web build and `ZIONCORE_2ND_PUBLIC_ORIGIN` for
+the API to that exact HTTPS origin. The production build omits canonical and
+sitemap URLs when the standalone host is unset, and fails if the main site's
+origin is supplied.
+
+Before enabling production checkout, add the verified standalone host to the
+ZionCore 2nd Firebase Authentication authorized domains and the production
+App Check key's allowed hostnames. Keep Stripe return URLs and CORS allowlists
+scoped to the same standalone deployment.
 
 ## Release and recovery
 
-1. Review the active published build in Replit Publishing before a release.
-2. After publishing, confirm the website loads and `GET /api/healthz` returns HTTP 200.
-3. Confirm owner-only routes reject anonymous requests before signing in with an approved owner account.
-4. If a release fails its health check, use Replit’s published-build history or project checkpoints to restore the last known good version; do not apply an unreviewed production data migration as a recovery step.
-5. Re-run the release gate before publishing a correction.
+1. Review the exact release commit and approved deployment target before a release.
+2. After deployment, confirm the independent site loads, deep links survive reload,
+   and `GET /api/healthz` returns HTTP 200.
+3. Confirm owner-only routes reject anonymous requests before checking approved
+   owner access.
+4. If a release fails its health check, restore the last known good deployment
+   revision; do not apply an unreviewed production data migration as a recovery step.
+5. Re-run the release gate before a correction is released.
 
 ## Firebase data protection
 
-The production Firestore service-account read, cleanup query, and required expiry-index checks passed on 2026-11-09. A temporary document was created, read, deleted, and verified absent.
+The separate ZionCore 2nd Firestore read and rules/App Check checks are recorded
+in `artifacts/zioncore-frequency-lab/FIREBASE_SETUP_ZIONCORE_2ND.md`. The main
+ZionCore Firebase project is not the target for this application.
 
 At that check, Firestore point-in-time recovery was disabled and no backup schedules were returned. App Storage has no built-in automated object backup. Configure backups only after choosing a protected destination, retention period, access policy, and budget; avoid copying customer audio or account data into temporary storage.
 
@@ -26,4 +42,8 @@ At that check, Firestore point-in-time recovery was disabled and no backup sched
 
 ## Portability and providers
 
-The application uses Replit for hosting and App Storage, Firebase for Authentication and Firestore, Stripe for billing, and Google Gemini for AI. Keep provider credentials in the deployment’s environment configuration, keep service adapters isolated, and validate each provider after any hosting change. The app supports the current primary domain without requiring a paid domain.
+The application source supports Firebase Authentication/Firestore, Stripe
+billing, and Google Gemini AI. Keep credentials in the independent deployment's
+secret manager and validate every provider after a hosting change. Do not claim
+these services are live until they have been exercised through the deployed
+standalone application.

@@ -771,7 +771,7 @@ export default function CelestialExplorationPage({
         <span><span className="brand-name">ZIONCORE</span><br /><span className="brand-sub">Frequency Lab</span></span>
       </Link>
       <nav className="nav-links" aria-label="Main navigation">
-        <Link href="/" className="nav-link" data-testid="link-live-lab">Live lab</Link>
+        <Link href="/lab" className="nav-link" data-testid="link-live-lab">Live lab</Link>
         <Link href="/history" className="nav-link" data-testid="link-history"><History size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />History</Link>
         <span className="nav-link active" aria-current="page">Exploration</span>
         <Link href="/access" className="nav-link" data-testid="link-access">Access</Link>

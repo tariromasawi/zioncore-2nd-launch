@@ -227,7 +227,7 @@ export default function DeviceConnectionCenter() {
         <h1 className="page-title">Connect what you have.<br /><em>Measure what it can capture.</em></h1>
         <p className="lead">Start with a phone microphone or a recording. Add specialist sensors through documented files and future adapter integrations. Every reading keeps its real measurement domain—sound, radio IQ and physical motion are never treated as interchangeable.</p>
         <div className="zc-device-hero-actions">
-          <Link className="btn btn-primary" href="/"><AudioLines size={15} /> Open live acoustic lab <ArrowRight size={14} /></Link>
+          <Link className="btn btn-primary" href="/lab"><AudioLines size={15} /> Open live acoustic lab <ArrowRight size={14} /></Link>
           <button className="btn btn-subtle" type="button" onClick={refreshCapabilities} data-testid="button-detect-capabilities"><Cpu size={15} /> Detect browser support</button>
         </div>
       </div>

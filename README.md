@@ -13,12 +13,19 @@ application. See `docs/ZIONCORE-2ND-EXECUTION-MATRIX.md` and
 
 ## Included experience
 
-The full web application includes Live Lab, exploration, missions, astronomy,
-bioacoustics, Voice V2, access guidance, messages, device tools, signal cards,
-history, wallet, premium and owner routes. The API contains authenticated
+The public entry page at `/` links into the Live Lab at `/lab` and the full web
+application: exploration, missions, astronomy, bioacoustics, Voice V2, access
+guidance, messages, device tools, signal cards, history, wallet, premium and
+owner routes. The API contains authenticated
 Firebase identity checks, research and AI routes, wallet and credit-ledger
 operations, Stripe webhook/fulfilment code, owner diagnostics and health
 endpoints. Financial and owner actions remain server-authorized.
+
+Builds accept `VITE_PUBLIC_SITE_URL` only as an independent HTTPS origin. With
+no hostname configured, the build removes old main-site canonical and sitemap
+metadata rather than pointing ZionCore 2nd at `zioncore.replit.app`. Production
+billing returns fail closed until `ZIONCORE_2ND_PUBLIC_ORIGIN` is set to the
+verified standalone host.
 
 The original Genesis Seed is preserved byte-for-byte at
 `governance/genesis/GENESIS_SEED.original.txt`. Its SHA-256 is

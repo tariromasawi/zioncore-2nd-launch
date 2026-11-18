@@ -141,7 +141,7 @@ export function PremiumComparisonPage({
         <div className="zc-premium-state">
           <Waves size={18} aria-hidden="true" />
           <p>Save at least two observations to compare the patterns you have recorded over time.</p>
-          <Link href="/" className="btn btn-primary">Start a listening session <ArrowRight size={14} aria-hidden="true" /></Link>
+          <Link href="/lab" className="btn btn-primary">Start a listening session <ArrowRight size={14} aria-hidden="true" /></Link>
           <small>Only observations you choose to save are included. Original audio is not needed for this comparison.</small>
         </div>
       ) : (

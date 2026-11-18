@@ -1,22 +1,42 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getTrustedBillingOrigin, ZIONCORE_PRODUCTION_ORIGIN } from './billing-origin';
+import { getTrustedBillingOrigin } from './billing-origin';
 
-test('production billing returns use only the approved ZionCore domain', () => {
+test('production billing returns use only the configured standalone ZionCore 2nd origin', () => {
+  const environment = {
+    nodeEnv: 'production',
+    productionOrigin: 'https://zioncore-2nd.example',
+  };
   assert.equal(
-    getTrustedBillingOrigin('https://zioncore.replit.app', { nodeEnv: 'production' }),
-    ZIONCORE_PRODUCTION_ORIGIN,
+    getTrustedBillingOrigin('https://zioncore-2nd.example', environment),
+    'https://zioncore-2nd.example',
   );
 });
 
-test('production billing rejects preview, lookalike, and insecure origins', () => {
+test('production billing rejects the main site, preview, lookalike, and insecure origins', () => {
   const environment = {
     nodeEnv: 'production',
+    productionOrigin: 'https://zioncore-2nd.example',
     replitDomains: 'zioncore.replit.app,preview.replit.dev',
   };
+  assert.equal(getTrustedBillingOrigin('https://zioncore.replit.app', environment), null);
   assert.equal(getTrustedBillingOrigin('https://preview.replit.dev', environment), null);
   assert.equal(getTrustedBillingOrigin('https://zioncore.replit.app.attacker.example', environment), null);
   assert.equal(getTrustedBillingOrigin('http://zioncore.replit.app', environment), null);
+});
+
+test('production billing fails closed when the standalone origin is unset or malformed', () => {
+  assert.equal(
+    getTrustedBillingOrigin('https://zioncore-2nd.example', { nodeEnv: 'production' }),
+    null,
+  );
+  assert.equal(
+    getTrustedBillingOrigin('https://zioncore-2nd.example', {
+      nodeEnv: 'production',
+      productionOrigin: 'https://zioncore.replit.app',
+    }),
+    null,
+  );
 });
 
 test('development accepts only local origins or explicitly injected Replit hosts', () => {

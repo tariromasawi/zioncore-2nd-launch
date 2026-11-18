@@ -28,6 +28,7 @@ function verifiedUid(res: Parameters<typeof requireFirebaseIdentity>[1]): string
 function trustedOrigin(req: Request): string | null {
   return getTrustedBillingOrigin(req.get('origin'), {
     nodeEnv: process.env.NODE_ENV,
+    productionOrigin: process.env.ZIONCORE_2ND_PUBLIC_ORIGIN,
     replitDomains: process.env.REPLIT_DOMAINS,
     replitDevDomain: process.env.REPLIT_DEV_DOMAIN,
   });

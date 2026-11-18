@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 
-const siteUrl = 'https://zioncore.replit.app';
-const socialImage = `${siteUrl}/og-zioncore.jpg`;
+const siteUrl = (import.meta.env.VITE_PUBLIC_SITE_URL ?? '').trim().replace(/\/+$/, '');
+const socialImage = siteUrl ? `${siteUrl}/og-zioncore.jpg` : '';
 
 type RouteMetadata = {
   title: string;
@@ -13,9 +13,15 @@ type RouteMetadata = {
 
 const routeMetadata: Record<string, RouteMetadata> = {
   '/': {
-    title: 'ZionCore Frequency Intelligence | Universal Language',
-    description: 'Explore sound-frequency analysis, environmental audio, acoustic messaging, and personal spiritual reflection with ZionCore’s browser-based frequency intelligence tools.',
+    title: 'ZionCore 2nd | Signal Research Laboratory',
+    description: 'Inspect acoustic signals, explore bioacoustic and astronomical datasets, and keep measured observations distinct from interpretation and personal reflection.',
     canonicalPath: '/',
+    indexable: true,
+  },
+  '/lab': {
+    title: 'Live Signal Lab | ZionCore 2nd',
+    description: 'Measure microphone input or a selected audio file locally in your browser, with waveform and frequency views.',
+    canonicalPath: '/lab',
     indexable: true,
   },
   '/discover': {
@@ -70,7 +76,7 @@ function upsertMeta(attribute: 'name' | 'property', key: string, content: string
 
 function setCanonical(path: string | undefined) {
   const existing = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-  if (!path) {
+  if (!path || !siteUrl) {
     existing?.remove();
     return;
   }
@@ -87,8 +93,8 @@ export default function SeoRouteMetadata() {
   useEffect(() => {
     const isHistory = path === '/history' || path.startsWith('/history/');
     const metadata = routeMetadata[path] ?? {
-      title: 'ZionCore Frequency Intelligence',
-      description: 'Explore sound-frequency analysis, acoustic messaging, and personal spiritual audio reflection with ZionCore.',
+      title: 'ZionCore 2nd | Signal Research Laboratory',
+      description: 'Inspect acoustic signals, explore research datasets, and distinguish measured observations from interpretation and personal reflection.',
       indexable: false,
     };
     const robots = metadata.indexable && !isHistory ? 'index, follow' : 'noindex, follow';
@@ -99,10 +105,15 @@ export default function SeoRouteMetadata() {
     upsertMeta('property', 'og:title', metadata.title);
     upsertMeta('property', 'og:description', metadata.description);
     upsertMeta('property', 'og:type', 'website');
-    upsertMeta('property', 'og:site_name', 'ZionCore');
+    upsertMeta('property', 'og:site_name', 'ZionCore 2nd');
     upsertMeta('property', 'og:locale', 'en_GB');
-    upsertMeta('property', 'og:url', `${siteUrl}${metadata.canonicalPath ?? path}`);
-    upsertMeta('property', 'og:image', socialImage);
+    if (siteUrl) {
+      upsertMeta('property', 'og:url', `${siteUrl}${metadata.canonicalPath ?? path}`);
+      upsertMeta('property', 'og:image', socialImage);
+    } else {
+      document.head.querySelector('meta[property="og:url"]')?.remove();
+      document.head.querySelector('meta[property="og:image"]')?.remove();
+    }
     upsertMeta('name', 'twitter:card', 'summary_large_image');
     upsertMeta('name', 'twitter:title', metadata.title);
     upsertMeta('name', 'twitter:description', metadata.description);

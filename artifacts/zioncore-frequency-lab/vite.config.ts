@@ -1,4 +1,5 @@
 import path from 'path';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -65,6 +66,84 @@ function seoLandingPageRoutes(): Plugin {
   };
 }
 
+function standalonePublicOriginPlugin(): Plugin {
+  return {
+    name: 'zioncore-2nd-public-origin',
+    apply: 'build',
+    async closeBundle() {
+      const rawOrigin = process.env.VITE_PUBLIC_SITE_URL?.trim();
+      let publicOrigin: string | null = null;
+      if (rawOrigin) {
+        let parsedOrigin: URL;
+        try {
+          parsedOrigin = new URL(rawOrigin);
+        } catch {
+          throw new Error('VITE_PUBLIC_SITE_URL must be a valid HTTPS origin.');
+        }
+        if (
+          parsedOrigin.protocol !== 'https:'
+          || parsedOrigin.pathname !== '/'
+          || parsedOrigin.search
+          || parsedOrigin.hash
+          || parsedOrigin.hostname.toLowerCase() === 'zioncore.replit.app'
+        ) {
+          throw new Error(
+            'VITE_PUBLIC_SITE_URL must be an independent HTTPS origin, not the main ZionCore site.',
+          );
+        }
+        publicOrigin = parsedOrigin.origin;
+      }
+
+      const outputDir = path.resolve(import.meta.dirname, 'dist/public');
+      const visit = async (directory: string): Promise<void> => {
+        for (const entry of await readdir(directory, { withFileTypes: true })) {
+          const fullPath = path.join(directory, entry.name);
+          if (entry.isDirectory()) {
+            await visit(fullPath);
+            continue;
+          }
+          if (!/\.(?:html|xml|txt)$/i.test(entry.name)) continue;
+
+          let content = await readFile(fullPath, 'utf8');
+          if (publicOrigin) {
+            content = content.replaceAll('https://zioncore.replit.app', publicOrigin);
+          } else {
+            content = content
+              .replace(
+                /<link\b(?=[^>]*\brel=["']canonical["'])(?=[^>]*zioncore\.replit\.app)[^>]*>\s*/gi,
+                '',
+              )
+              .replace(
+                /<meta\b(?=[^>]*(?:property=["']og:(?:url|image)["']|name=["']twitter:image["']))(?=[^>]*zioncore\.replit\.app)[^>]*>\s*/gi,
+                '',
+              )
+              .replace(
+                /<script\b(?=[^>]*type=["']application\/ld\+json["'])[^>]*>[\s\S]*?<\/script>\s*/gi,
+                match => match.includes('zioncore.replit.app') ? '' : match,
+              )
+              .replace(/^\s*Sitemap:\s*https:\/\/zioncore\.replit\.app\/sitemap\.xml\s*$/gim, '')
+              .replace(/<url>[\s\S]*?<\/url>/gi, match =>
+                match.includes('zioncore.replit.app') ? '' : match,
+              );
+          }
+
+          if (content.includes('zioncore.replit.app')) {
+            throw new Error(`Standalone build contains a main-site URL: ${fullPath}`);
+          }
+          await writeFile(fullPath, content);
+        }
+      };
+
+      await visit(outputDir);
+      this.info(
+        publicOrigin
+          ? `SEO origin configured for standalone host ${publicOrigin}.`
+          : 'No standalone public URL is configured; main-site canonical and sitemap URLs were omitted.',
+      );
+    },
+  };
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -81,6 +160,7 @@ export default defineConfig({
       },
     },
     seoLandingPageRoutes(),
+    standalonePublicOriginPlugin(),
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),

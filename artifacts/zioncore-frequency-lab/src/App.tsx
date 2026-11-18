@@ -159,6 +159,7 @@ const AnalysisPanel = lazy(() => import('@/components/analysis-panel'));
 const FreeListeningPanel = lazy(() => import('@/components/free-listening-panel'));
 const WalletPage = lazy(() => import('@/components/wallet-page'));
 const DiscoverPage = lazy(() => import('@/components/discover-page'));
+const PublicHomePage = lazy(() => import('@/pages/public-home/PublicHome'));
 
 type Reading = {
   sampleRate: number;
@@ -721,7 +722,7 @@ function Shell({ children }: { children: ReactNode }) {
         <ConstellationMotionControl />
       </div>
       <nav className="nav-links" aria-label="Main navigation">
-        <Link href="/" className={`nav-link ${location === '/' ? 'active' : ''}`} data-testid="link-live-lab">Live lab</Link>
+        <Link href="/lab" className={`nav-link ${location === '/lab' ? 'active' : ''}`} data-testid="link-live-lab">Live lab</Link>
         <Link href="/discover" className={`nav-link ${location === '/discover' ? 'active' : ''}`} data-testid="link-discover">Field guide</Link>
         <Link href="/missions" className={`nav-link ${location === '/missions' ? 'active' : ''}`} aria-current={location === '/missions' ? 'page' : undefined} data-testid="link-missions"><BookOpen size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />Missions</Link>
         <Link href="/astronomy" className={`nav-link ${location === '/astronomy' ? 'active' : ''}`} aria-current={location === '/astronomy' ? 'page' : undefined} data-testid="link-astronomy"><Activity size={14} style={{ verticalAlign: 'middle', marginRight: 5 }} />Astronomy</Link>
@@ -1884,7 +1885,7 @@ function HistoryPage({ deviceOnly = false }: { deviceOnly?: boolean } = {}) {
         : visibleItems.length ? <div className="history-list">{visibleItems.map(item => <Link key={item.id} href={deviceOnly ? `/history/device/${item.id}` : `/history/${item.id}`} className="panel history-item" data-testid={`link-observation-${item.id}`}>
         <span><span className="history-date">{new Date(item.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span><span className="history-freq">{formatFrequency(item.dominantFrequencyHz)}</span><span className="history-meta">{item.fftSize.toLocaleString()} FFT · {(item.sampleRate / 1000).toFixed(1)} kHz sample rate · {item.durationSeconds.toFixed(1)} sec</span></span><ArrowRight className="history-arrow" size={17} />
       </Link>)}</div> : <div className="panel empty-state" style={{ marginTop: 30 }}>
-        <span className="empty-glyph"><History size={23} /></span><h2>{!isCloudHistory && localArchiveIssue ? 'Browser history needs attention.' : 'Your record begins with an observation.'}</h2><p>{!isCloudHistory && localArchiveIssue ? 'Existing history could not be read. This does not mean it was empty or deleted. Check storage permissions or download a private recovery copy when offered.' : isCloudHistory ? 'No cloud observations are saved to this account yet. Local browser records remain separate.' : 'Capture microphone sound or import a supported recording in the live lab, then choose “Save observation.” Nothing is added automatically.'}</p><Link href="/" className="btn btn-primary" style={{ width: 'auto', padding: '12px 16px' }} data-testid="link-empty-start"><Mic size={14} />Go to live lab</Link>
+        <span className="empty-glyph"><History size={23} /></span><h2>{!isCloudHistory && localArchiveIssue ? 'Browser history needs attention.' : 'Your record begins with an observation.'}</h2><p>{!isCloudHistory && localArchiveIssue ? 'Existing history could not be read. This does not mean it was empty or deleted. Check storage permissions or download a private recovery copy when offered.' : isCloudHistory ? 'No cloud observations are saved to this account yet. Local browser records remain separate.' : 'Capture microphone sound or import a supported recording in the live lab, then choose “Save observation.” Nothing is added automatically.'}</p><Link href="/lab" className="btn btn-primary" style={{ width: 'auto', padding: '12px 16px' }} data-testid="link-empty-start"><Mic size={14} />Go to live lab</Link>
       </div>}
       <p className="footnote"><ShieldCheck size={12} style={{ verticalAlign: 'middle', marginRight: 5 }} />Exports contain measurement metadata and your notes, never original microphone or imported audio.</p>
     </main>
@@ -1971,7 +1972,7 @@ function DetailPage({ deviceOnly = false }: { deviceOnly?: boolean } = {}) {
 }
 
 function NotFound() {
-  return <Shell><main className="page-wrap"><div className="panel empty-state"><span className="empty-glyph"><Radio size={22} /></span><h2>Page not found</h2><p>Choose a live measurement, a saved observation, or the acoustic message instrument.</p><Link href="/" className="btn btn-primary" style={{ width: 'auto', padding: '12px 16px' }} data-testid="link-not-found-home">Return to lab</Link></div></main></Shell>;
+  return <Shell><main className="page-wrap"><div className="panel empty-state"><span className="empty-glyph"><Radio size={22} /></span><h2>Page not found</h2><p>Choose a live measurement, a saved observation, or the acoustic message instrument.</p><Link href="/lab" className="btn btn-primary" style={{ width: 'auto', padding: '12px 16px' }} data-testid="link-not-found-home">Return to lab</Link></div></main></Shell>;
 }
 
 function DeviceHistoryRoute() {
@@ -2031,7 +2032,7 @@ function SignalCardsRoute() {
         <SignalCardStudio key={user?.uid ?? 'signed-out'} userId={user?.uid ?? null} explanation={null} capture={null} />
       </Suspense>}
     {!loading && !user && <Link href="/history" className="btn btn-subtle">Sign in to open your collection</Link>}
-    <Link href="/" className="detail-back" style={{ marginTop: 24 }}>Return to the listening lab</Link>
+    <Link href="/lab" className="detail-back" style={{ marginTop: 24 }}>Return to the listening lab</Link>
   </main></Shell>;
 }
 
@@ -2131,6 +2132,12 @@ function RouteLoadingFallback() {
   </main>;
 }
 
+function PublicHomeRoute() {
+  return <ErrorBoundary><Suspense fallback={<RouteLoadingFallback />}>
+    <PublicHomePage />
+  </Suspense></ErrorBoundary>;
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(firebaseAuth?.currentUser ?? null);
   const [loading, setLoading] = useState(Boolean(firebaseAuth));
@@ -2210,7 +2217,7 @@ function App() {
     <PwaInstallPrompt />
     <NavigationEffects />
     <ConstellationProvider>
-    <Switch><Route path="/" component={LabPage} /><Route path="/discover" component={DiscoverRoute} /><Route path="/missions" component={ResearchMissionsRoute} /><Route path="/astronomy" component={AstronomyRoute} /><Route path="/bioacoustics" component={BioacousticsRoute} /><Route path="/exploration" component={ExplorationRoute} /><Route path="/access" component={AccessRoute} /><Route path="/devotional" component={DevotionalRoute} /><Route path="/cards" component={SignalCardsRoute} /><Route path="/history" component={HistoryRoute} /><Route path="/history/device" component={DeviceHistoryRoute} /><Route path="/history/device/:id" component={DeviceDetailRoute} /><Route path="/history/:id" component={DetailRoute} /><Route path="/messages" component={MessagesRoute} /><Route path="/voice-v2" component={VoiceV2Route} /><Route path="/devices" component={DevicesRoute} /><Route path="/premium" component={PremiumRoute} /><Route path="/admin" component={OwnerRoute} /><Route path="/owner" component={OwnerRoute} /><Route path="/dashboard" component={WalletRoute} /><Route path="/wallet" component={WalletRoute} /><Route component={NotFound} /></Switch>
+    <Switch><Route path="/" component={PublicHomeRoute} /><Route path="/lab" component={LabPage} /><Route path="/discover" component={DiscoverRoute} /><Route path="/missions" component={ResearchMissionsRoute} /><Route path="/astronomy" component={AstronomyRoute} /><Route path="/bioacoustics" component={BioacousticsRoute} /><Route path="/exploration" component={ExplorationRoute} /><Route path="/access" component={AccessRoute} /><Route path="/devotional" component={DevotionalRoute} /><Route path="/cards" component={SignalCardsRoute} /><Route path="/history" component={HistoryRoute} /><Route path="/history/device" component={DeviceHistoryRoute} /><Route path="/history/device/:id" component={DeviceDetailRoute} /><Route path="/history/:id" component={DetailRoute} /><Route path="/messages" component={MessagesRoute} /><Route path="/voice-v2" component={VoiceV2Route} /><Route path="/devices" component={DevicesRoute} /><Route path="/premium" component={PremiumRoute} /><Route path="/admin" component={OwnerRoute} /><Route path="/owner" component={OwnerRoute} /><Route path="/dashboard" component={WalletRoute} /><Route path="/wallet" component={WalletRoute} /><Route component={NotFound} /></Switch>
     </ConstellationProvider>
   </AuthContext.Provider>;
 }

@@ -1,13 +1,13 @@
 {
-  "name": "ZionCore Frequency Intelligence",
-  "short_name": "ZionCore",
-  "description": "Explore sound-frequency analysis, acoustic messages, environmental audio, and personal spiritual reflection.",
+  "name": "ZionCore 2nd Signal Research Laboratory",
+  "short_name": "ZionCore 2nd",
+  "description": "Inspect acoustic signals, explore research datasets, and keep measurements distinct from interpretation and personal reflection.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f2eee4",
-  "theme_color": "#f2eee4",
+  "background_color": "#0d141a",
+  "theme_color": "#0d141a",
   "categories": ["education", "utilities"],
   "icons": [
     {

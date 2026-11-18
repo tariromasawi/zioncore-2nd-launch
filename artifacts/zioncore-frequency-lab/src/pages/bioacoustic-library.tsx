@@ -271,7 +271,7 @@ function BioacousticLibraryPage() {
 
     <aside className="bio-library-next">
       <div><div className="eyebrow">Continue with your own recording</div><p>Use the local audio lab to inspect a file you have permission to analyze. ZionCore measures acoustic properties; it does not translate animal language or establish intent.</p></div>
-      <Link href="/" className="btn btn-primary" data-testid="link-bioacoustic-local-lab">Open local audio lab</Link>
+      <Link href="/lab" className="btn btn-primary" data-testid="link-bioacoustic-local-lab">Open local audio lab</Link>
     </aside>
   </main>;
 }

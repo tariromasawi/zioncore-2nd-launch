@@ -299,7 +299,7 @@ export default function AccessGuidePage() {
     <div className="access-next" data-testid="access-navigation">
       <span>Continue with a local tool</span>
       <div>
-        <Link href="/" className="access-next-link" data-testid="link-access-live-lab"><Mic size={14} />Live lab<ArrowRight size={14} /></Link>
+        <Link href="/lab" className="access-next-link" data-testid="link-access-live-lab"><Mic size={14} />Live lab<ArrowRight size={14} /></Link>
         <Link href="/exploration" className="access-next-link" data-testid="link-access-exploration"><AudioLines size={14} />Exploration<ArrowRight size={14} /></Link>
       </div>
     </div>

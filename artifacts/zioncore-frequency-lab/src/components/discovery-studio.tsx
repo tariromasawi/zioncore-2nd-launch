@@ -139,7 +139,7 @@ export default function DiscoveryStudio() {
       : observations.length < 2 ? <div className="zds-empty" data-testid="empty-discovery-captures">
         <strong>Two saved captures open the comparison studio.</strong>
         <p>Make a capture in the live lab, save it, then repeat under a condition you want to compare.</p>
-        <Link href="/" className="btn btn-primary"><ArrowRight size={14} /> Open the live lab</Link>
+        <Link href="/lab" className="btn btn-primary"><ArrowRight size={14} /> Open the live lab</Link>
       </div> : <>
         <div className="zds-controls">
           <label><span>Baseline capture</span>

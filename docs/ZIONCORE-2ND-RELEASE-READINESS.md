@@ -7,19 +7,26 @@
   initial root commit is a clean export from private source commit
   `ee647e19e3c01e5622394f09d90b5503d4943e0c`; no private Git history was copied.
   Original-workspace byte-for-byte parity remains unverified.
-- The repository contains 607 tracked files. `SOURCE_INVENTORY.sha256` records
-  606 tracked-file checksums; CI verifies the manifest after every push.
+- The repository now contains 609 tracked files. `SOURCE_INVENTORY.sha256`
+  records 608 tracked-file checksums; CI verifies the manifest after every push.
 - The Phase 1 source baseline and file-comparison findings are recorded in
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. Public root commit `a46007d35d5252b8d30ef950079ec892d85f4c19`
-  passed GitHub Actions run `44323918639`.
+  production builds. The new landing-page and standalone-origin changes passed
+  the full local release gate; a new remote CI run is pending the source push.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
-- The complete preview application source is present in
+- The complete standalone application source is present in
   `artifacts/zioncore-frequency-lab`, with the API in `artifacts/api-server`
   and shared packages in `lib/`.
+- The public entry route `/` now introduces the research product and preserves
+  the original Live Lab at `/lab`. All “open lab” links point to `/lab`.
+- Canonical/social metadata uses `VITE_PUBLIC_SITE_URL`; until an independent
+  hostname exists, the production build omits the old main-site canonical and
+  sitemap URLs. The build rejects `zioncore.replit.app` as a standalone host.
+- Production checkout return origins now require `ZIONCORE_2ND_PUBLIC_ORIGIN`
+  and fail closed if it is unset, malformed, or set to the main-site domain.
 - The original Genesis Seed is preserved byte-for-byte; SHA-256:
   `f87c324da247443bcf6ac4c6b799241e871abc3dec8aaa69c921cd123943f95e`.
 - Firebase project identity and server service-account project were verified
@@ -103,18 +110,19 @@ patterns. This is not a formal security certification.
 6. **Mobile browser:** the nine key routes rendered at 402×874 Chromium
    mobile-emulation width without horizontal overflow; final iPhone Safari
    end-to-end verification remains outstanding.
-7. **Dependency advisories:** the scoped full dependency audit reports one high
-   and one moderate development-tool advisory, plus two moderate production
-   transitive advisories (`glob` and `minimatch`). The high `picomatch` advisory
-   currently has no patched release in the registry result. The Firebase CLI
-   was updated to 15.36.0; the advisory remains open. Do not claim a clean
-   dependency audit.
+7. **Dependency advisories:** the production dependency audit now reports zero
+   advisories after updating Firebase Admin to 14.5.1 and applying a tested
+   `rimraf` 6 override. The full development audit still reports one high
+   `picomatch` and three moderate advisories in Firebase CLI tooling. The high
+   advisory has no patched release in the registry result; the CLI is used for
+   emulator/development checks and is not a production runtime dependency.
 
 ## Deployment boundary
 
 The independent Firestore rules and App Check enforcement are configured, but
 no application deployment, billing activation, production Stripe operation,
 or change to the original ZionCore project was performed. The public repository
-is a source release, not a live application. Do not describe the system as
-launch-ready until the blockers above are resolved and the resulting live
-journeys are verified.
+is a source release, not a live application. The current Replit deployment
+metadata still points to the main site, not this standalone product. Do not
+describe the system as launch-ready until an independent host is deployed and
+the resulting live journeys are verified.
