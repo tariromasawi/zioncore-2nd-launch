@@ -13,8 +13,10 @@
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. The new landing-page and standalone-origin changes passed
-  the full local release gate; a new remote CI run is pending the source push.
+  production builds. The landing-page and standalone-origin changes passed the
+  full local release gate and GitHub Actions run
+  `44333293318` for source commit
+  `53f76547f4b23aa83ed2b9235fd4e4603dc4d797`.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
 - The complete standalone application source is present in
