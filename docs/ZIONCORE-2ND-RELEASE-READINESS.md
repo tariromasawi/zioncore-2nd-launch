@@ -13,8 +13,8 @@
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. The private-source review branch passed before export;
-  the public branch must pass CI after its first push.
+  production builds. Public root commit `a46007d35d5252b8d30ef950079ec892d85f4c19`
+  passed GitHub Actions run `44323918639`.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
 - The complete preview application source is present in
