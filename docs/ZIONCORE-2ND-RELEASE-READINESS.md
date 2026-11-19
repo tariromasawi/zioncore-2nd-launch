@@ -14,10 +14,11 @@
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. The two previously verified CI runs (`44550130621` and
-  `44550116862`) completed successfully for baseline commit
-  `e6ca411dda2593658052c942f8d95b24a7bb490c`. PR #1 remains open and unmerged;
-  subsequent commits require their own CI verification.
+  production builds. Current branch commit
+  `3e523f69029f96aedeed43a93a4f33f6ea8b9b3b` passed GitHub Actions run
+  `44575531289`; the two earlier baseline runs (`44550130621` and
+  `44550116862`) also passed for `e6ca411dda2593658052c942f8d95b24a7bb490c`.
+  PR #1 remains open and unmerged.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
 - The complete standalone application source is present in
