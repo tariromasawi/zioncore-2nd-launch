@@ -3,6 +3,10 @@ import test from 'node:test';
 import {
   estimateProviderUsageMicroUsd,
   estimateGeminiAudioUsageMicroUsd,
+  buildGeminiJsonGenerationConfig,
+  GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA,
+  GEMINI_AUDIO_SEGMENT_RESPONSE_JSON_SCHEMA,
+  GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS,
   generateWithGeminiAudioSegment,
   getGeminiAnalysisModel,
   getGeminiCredentialSource,
@@ -12,6 +16,7 @@ import {
   normalizeGeminiUsage,
   GOOGLE_GENAI_ANALYSIS_MODEL,
 } from './ai-provider-clients';
+import { MAX_ANALYSIS_OUTPUT_TOKENS } from '@workspace/frequency-ai-contract';
 
 test('prefers the owner-provided Google API key and validates integration configuration', () => {
   assert.equal(
@@ -189,6 +194,32 @@ test('Gemini audio usage estimate applies the documented audio input rate conser
     }),
     null,
   );
+});
+
+test('Gemini text and audio requests use their distinct supported structured-output schemas', () => {
+  const controller = new AbortController();
+  const textConfig = buildGeminiJsonGenerationConfig(
+    controller.signal,
+    GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA,
+    MAX_ANALYSIS_OUTPUT_TOKENS,
+  );
+  const audioConfig = buildGeminiJsonGenerationConfig(
+    controller.signal,
+    GEMINI_AUDIO_SEGMENT_RESPONSE_JSON_SCHEMA,
+    GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS,
+  );
+
+  assert.equal(textConfig.responseMimeType, 'application/json');
+  assert.equal(textConfig.maxOutputTokens, 8192);
+  assert.deepEqual(
+    textConfig.responseJsonSchema.required,
+    Object.keys(textConfig.responseJsonSchema.properties as object),
+  );
+  assert.equal(audioConfig.maxOutputTokens, 256);
+  assert.deepEqual(audioConfig.responseJsonSchema.required, [
+    'observations',
+    'speechOrEventDetail',
+  ]);
 });
 
 test('Gemini audio segment helper sends WAV inline data and applies its bounded deadline', async () => {

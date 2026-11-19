@@ -15,6 +15,7 @@ export type ProviderAttemptTelemetry = {
   model?: string;
   operation?: string;
   usageOf?: (result: unknown) => ProviderUsageSummary | null | undefined;
+  finishReasonOf?: (result: unknown) => string | null | undefined;
   onEvent?: (event: ProviderAttemptEvent) => void;
 };
 
@@ -30,6 +31,7 @@ export type ProviderAttemptEvent = {
   durationMs?: number;
   timeoutMs: number;
   usage?: ProviderUsageSummary | null;
+  finishReason?: string | null;
   timedOut?: boolean;
   errorName?: string;
   errorCode?: string;
@@ -113,9 +115,20 @@ export async function withProviderDeadline<T>(
     } catch {
       usage = null;
     }
+    let finishReason: string | null = null;
+    try {
+      const candidate = telemetry.finishReasonOf?.(result);
+      finishReason = typeof candidate === 'string' &&
+        /^[A-Za-z0-9_-]{1,48}$/.test(candidate)
+        ? candidate
+        : null;
+    } catch {
+      finishReason = null;
+    }
     emit('succeeded', {
       durationMs: Date.now() - startedAtMs,
       usage: usage ?? null,
+      finishReason,
     });
     return result;
   } catch (cause) {
@@ -126,11 +139,15 @@ export async function withProviderDeadline<T>(
       ? record.response as Record<string, unknown>
       : undefined;
     const status = record.status ?? record.statusCode ?? response?.status;
+    const errorCode = typeof record.code === 'string' &&
+      /^[A-Za-z0-9_-]{1,64}$/.test(record.code)
+      ? record.code
+      : undefined;
     emit('failed', {
       durationMs: Date.now() - startedAtMs,
       timedOut: timedOut || error instanceof ProviderTimeoutError,
       errorName: error instanceof Error ? error.name : 'UnknownError',
-      errorCode: typeof record.code === 'string' ? record.code.slice(0, 64) : undefined,
+      errorCode,
       errorStatus: typeof status === 'number' ? status : undefined,
     });
     throw error;

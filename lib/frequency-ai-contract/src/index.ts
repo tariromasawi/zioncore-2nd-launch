@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, type ZodType } from 'zod';
 import { buildGenesisSeedContext } from './genesis-seed';
 export {
   ZIONCORE_GENESIS_SOURCE_PATH,
@@ -227,6 +227,80 @@ export const explanationSchema = z.object({
   faithReflection: faithReflectionSchema,
 }).strict();
 
+export const audioSegmentInsightSchema = z.object({
+  observations: z.string().min(1).max(320),
+  speechOrEventDetail: z.string().max(260).nullable(),
+}).strict();
+
+const GEMINI_RESPONSE_SCHEMA_FIELDS = new Set([
+  'type',
+  'properties',
+  'required',
+  'enum',
+  'items',
+  'maximum',
+  'maxItems',
+  'minimum',
+  'minItems',
+  'nullable',
+  'description',
+  'format',
+  'anyOf',
+  'propertyOrdering',
+]);
+
+function isSchemaRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toGeminiSchemaNode(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toGeminiSchemaNode);
+  if (!isSchemaRecord(value)) return value;
+
+  const alternatives = value.anyOf;
+  if (Array.isArray(alternatives)) {
+    const nonNullAlternatives = alternatives.filter(
+      alternative => !(isSchemaRecord(alternative) && alternative.type === 'null'),
+    );
+    const hasNullAlternative = nonNullAlternatives.length !== alternatives.length;
+    if (hasNullAlternative && nonNullAlternatives.length === 1) {
+      const normalized = toGeminiSchemaNode(nonNullAlternatives[0]);
+      if (isSchemaRecord(normalized)) return { ...normalized, nullable: true };
+    }
+  }
+
+  const output: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'properties' && isSchemaRecord(child)) {
+      output.properties = Object.fromEntries(
+        Object.entries(child).map(([name, propertySchema]) => [
+          name,
+          toGeminiSchemaNode(propertySchema),
+        ]),
+      );
+    } else if (GEMINI_RESPONSE_SCHEMA_FIELDS.has(key)) {
+      output[key] = toGeminiSchemaNode(child);
+    }
+  }
+
+  if (output.type === 'object' && isSchemaRecord(output.properties)) {
+    output.propertyOrdering = Object.keys(output.properties);
+  }
+  return output;
+}
+
+/**
+ * Converts a Zod response contract to the supported Vertex/Gemini JSON Schema
+ * subset. The server still applies the full Zod validation after generation.
+ */
+export function toGeminiResponseJsonSchema(schema: ZodType): Record<string, unknown> {
+  const normalized = toGeminiSchemaNode(z.toJSONSchema(schema));
+  if (!isSchemaRecord(normalized) || normalized.type !== 'object') {
+    throw new Error('Gemini response schemas must describe a JSON object.');
+  }
+  return normalized;
+}
+
 export const aiInterpretationRequestSchema = z.object({
   measurement: analysisMeasurementSchema,
   includeFaithReflection: z.boolean(),
@@ -429,6 +503,7 @@ export function buildAnalysisPrompt(
   measurement: AnalysisMeasurement,
   includeFaithReflection: boolean,
   listeningContext = '',
+  includeOutputSchemaGuidance = true,
 ) {
   const validatedContext = analysisContextSchema.parse(listeningContext).trim();
   const validated = analysisMeasurementSchema.parse(measurement);
@@ -472,7 +547,9 @@ export function buildAnalysisPrompt(
     'Do not dismiss or argue against the user’s stated belief.',
     'If no tradition is named, do not infer the user’s religion.',
     'Include 3â6 key takeaways, at least two concrete follow-up experiments, and 2â4 open reflection questions. Experiments must be safe, low-cost, reproducible, and specific about what to record or compare.',
-    'Return strict JSON only, with no markdown fences or extra keys. signalFamily must be exactly tonal, harmonic, broadband, mixed, or insufficient. confidence and each candidate confidence must be exactly low, moderate, or high, never a number. domainPerspectives must contain exactly five objects, one per allowed domain, with relevance exactly direct, tentative, or needs_more_data. candidate evidenceFor and evidenceAgainst must each be a single plain string, never an array. Keep patternSignature under 1,200 characters and every other field within its schema limits. Required keys: signalFamily; executiveSummary; integratedReading; patternSignature; harmonicAnalysis; temporalAnalysis; modulationAnalysis; domainPerspectives (domain, relevance, analysis, evidenceBoundary); keyTakeaways; confidence; confidenceScope; uncertainty; dataQuality; candidateExplanations (label, rationale, evidenceFor, evidenceAgainst, confidence, whatWouldDiscriminate); followUpExperiments (title, method, whatToRecord); reflectionQuestions; faithReflection (string or null).',
+    includeOutputSchemaGuidance
+      ? 'Return strict JSON only, with no markdown fences or extra keys. signalFamily must be exactly tonal, harmonic, broadband, mixed, or insufficient. confidence and each candidate confidence must be exactly low, moderate, or high, never a number. domainPerspectives must contain exactly five objects, one per allowed domain, with relevance exactly direct, tentative, or needs_more_data. candidate evidenceFor and evidenceAgainst must each be a single plain string, never an array. Keep patternSignature under 1,200 characters and every other field within its schema limits. Required keys: signalFamily; executiveSummary; integratedReading; patternSignature; harmonicAnalysis; temporalAnalysis; modulationAnalysis; domainPerspectives (domain, relevance, analysis, evidenceBoundary); keyTakeaways; confidence; confidenceScope; uncertainty; dataQuality; candidateExplanations (label, rationale, evidenceFor, evidenceAgainst, confidence, whatWouldDiscriminate); followUpExperiments (title, method, whatToRecord); reflectionQuestions; faithReflection (string or null).'
+      : 'Return only the JSON object required by the structured response schema supplied with this request. Do not include markdown or text outside the object.',
     'Every valid session should deliver substantive value. A quiet capture invites baseline science, attention, ecological listening and a focused next experiment; a tonal, harmonic, changing or mixed capture gets a pattern-specific journey. Keep required sections meaningful. A missing feature belongs in a concise technical note, while the narrative offers useful knowledge and next steps. Corrupt or absent input requires an honest recovery path.',
     includeFaithReflection
       ? 'Write faithReflection as 3–5 substantial personalized paragraphs separated by blank lines. The interface supplies the heading, so do not add a title. Connect the reflection to the user’s question and selected spiritual context while distinguishing personal meaning from measured evidence. Never invent a signal, personal history, revelation, or certainty. Never substitute a verse for the personalized reading. Include an optional sacred-text quotation only when its wording and citation are reliably known; otherwise omit it.'

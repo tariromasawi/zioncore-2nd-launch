@@ -7,16 +7,17 @@
   initial root commit is a clean export from private source commit
   `ee647e19e3c01e5622394f09d90b5503d4943e0c`; no private Git history was copied.
   Original-workspace byte-for-byte parity remains unverified.
-- The repository contains 614 tracked files. `SOURCE_INVENTORY.sha256` records
-  checksums for the 613 other tracked files; CI verifies the manifest after
+- The repository contains 617 tracked files on the current deployment branch.
+  `SOURCE_INVENTORY.sha256` records checksums for the 616 other tracked files; CI verifies the manifest after
   every push.
 - The Phase 1 source baseline and file-comparison findings are recorded in
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. Both latest CI runs (`44550130621` and `44550116862`)
-  completed successfully for commit
-  `e6ca411dda2593658052c942f8d95b24a7bb490c`. PR #1 remains open and unmerged.
+  production builds. The two previously verified CI runs (`44550130621` and
+  `44550116862`) completed successfully for baseline commit
+  `e6ca411dda2593658052c942f8d95b24a7bb490c`. PR #1 remains open and unmerged;
+  subsequent commits require their own CI verification.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
 - The complete standalone application source is present in
@@ -41,7 +42,7 @@
   authenticated own-record write/read with a valid development App Check token;
   a matching authenticated REST read without App Check was rejected. The test
   account and record were deleted. Identity Toolkit enforcement remains off.
-- Local checks passed: web unit tests 426/426; API unit tests 108/108; web and
+- Latest local checks passed: web unit tests 426/426; API unit tests 127/127; web and
   API typechecks; web and API production builds; wallet/ledger/Stripe emulator
   integration tests 20/20.
 - Firebase Authentication emulator tests passed 3/3 for registration,
@@ -116,17 +117,45 @@
   verified absent. Cloud Logging and inspected Vertex metrics had no matching
   records, and the quota query returned no model-specific numeric effective
   limit. Billable generation is not verified end to end.
-- Provider diagnostics now emit server-generated request and attempt IDs,
-  timestamps, provider/model/operation, duration, returned token counts, timeout
-  status, and sanitized error fields. They exclude prompts, audio, credentials,
-  and raw provider error messages. API tests verify the response correlation
-  header and that telemetry omits prompt/error content. The production
-  instrumentation is present on the branch; the one-off direct test still needs
-  to retain response status and token usage before response parsing on any
-  separately authorized retry.
+- The earlier direct test harness did not retain exact response status or token
+  usage after parsing failed; that historical information cannot be
+  reconstructed. Application-route diagnostics have since been updated to
+  retain provider usage and finish reasons before validation, with categorized
+  validation failures and no prompt, audio, credentials, or response-body
+  logging. No additional live generation was run.
 - The deployment container was not built locally and the workflow was not run;
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.
+
+## Gemini structured-output correction — 19 November 2026
+
+- The prior authorized one-off text request used a 32-token output cap for a
+  response contract with 17 required top-level fields and a requested
+  1,800–2,400-word report. That cap cannot satisfy the contract. The test
+  harness did not retain the model finish reason or usage after parsing failed,
+  so the precise reason for that historical response failure cannot be proven.
+- The production application uses an 8,192-token output cap; it was not using
+  the test's 32-token cap. Before this correction its Gemini requests asked for
+  JSON MIME output but did not send the response schema, leaving strict Zod
+  validation as a post-generation check.
+- The deployment branch now sends Gemini structured-output schemas for both
+  full interpretations and short audio-segment observations. The schemas are
+  derived from the existing Zod contracts, filtered to Vertex's documented
+  supported fields, and still receive full server-side Zod and quality
+  validation afterward. The Gemini prompt no longer repeats the response
+  schema; the OpenAI fallback retains its explicit JSON-shape instructions.
+- Provider telemetry now retains a sanitized finish reason alongside
+  correlation/attempt IDs, timestamps, duration, provider/model, and returned
+  usage. Validation failures are categorized as empty, incomplete, malformed
+  JSON, schema-invalid, or quality-invalid without logging prompts, audio, or
+  generated response text. Audio segment validation failures are logged with
+  only the segment operation and category.
+- Local synthetic and mocked regression tests cover schema compatibility,
+  streamed text assembly, truncation classification, schema/quality failure
+  categories, safe telemetry, and both Gemini response shapes. No billable
+  generation was retried; live model generation remains unverified until a
+  separately authorized bounded test.
+- Reference: [Vertex AI structured output](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/control-generated-output).
 
 ## Public repository security and privacy review — 19 November 2026
 

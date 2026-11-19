@@ -26,6 +26,10 @@ import {
 } from '../lib/ai-provider-clients';
 import { normalizeAnalysisOutput } from '../lib/ai-output-normalizer';
 import { assertAiInterpretationQuality } from '../lib/ai-interpretation-quality';
+import {
+  parseProviderJsonOutput,
+  ProviderOutputValidationError,
+} from '../lib/provider-output-validation';
 import { createAIRequestGuard } from '../lib/ai-request-guard';
 import { CreditLedgerError, getCreditLedger } from '../lib/credit-ledger';
 import {
@@ -52,12 +56,19 @@ function parseProviderJson(
   measurement: AnalysisMeasurement,
   listeningContext: string,
   includeFaithReflection: boolean,
+  finishReason: string | null | undefined,
 ) {
-  const normalized = text.trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '');
-  const analysis = explanationSchema.parse(normalizeAnalysisOutput(JSON.parse(normalized)));
-  assertAiInterpretationQuality(analysis, measurement, listeningContext, includeFaithReflection);
+  const analysis = parseProviderJsonOutput(
+    text,
+    finishReason,
+    value => explanationSchema.safeParse(value),
+    normalizeAnalysisOutput,
+  );
+  try {
+    assertAiInterpretationQuality(analysis, measurement, listeningContext, includeFaithReflection);
+  } catch {
+    throw new ProviderOutputValidationError('quality_invalid');
+  }
   return analysis;
 }
 
@@ -67,6 +78,9 @@ function providerUsageSummary(attempts: ProviderAttempt[]) {
     model: attempt.model,
     inputTokens: attempt.usage?.inputTokens ?? null,
     outputTokens: attempt.usage?.outputTokens ?? null,
+    finishReason: attempt.finishReason,
+    outputStatus: attempt.outputStatus,
+    validationFailure: attempt.validationFailure ?? null,
     estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
   }));
   const estimates = providers.map(provider => provider.estimatedCostMicroUsd);
@@ -88,6 +102,7 @@ export type AiInterpretationRouterOptions = {
   providerFactory?: (input: {
     uid: string;
     prompt: string;
+    openAiPrompt?: string;
     requestId: string;
     request: {
       measurement: AnalysisMeasurement;
@@ -106,12 +121,12 @@ export function createAiInterpretationRouter(
   const identityMiddleware = options.identityMiddleware ?? requireFirebaseIdentity;
   const ledgerProvider = options.ledgerProvider ?? getCreditLedger;
   const jobStoreProvider = options.jobStoreProvider ?? interpretationJobStore;
-  const providerFactory = options.providerFactory ?? (({ prompt, requestId }) => ({
+  const providerFactory = options.providerFactory ?? (({ prompt, openAiPrompt, requestId }) => ({
     gemini: () => generateWithGemini(prompt, undefined, {
       requestId,
       operation: 'text-interpretation',
     }),
-    openai: () => generateWithOpenAI(prompt, undefined, {
+    openai: () => generateWithOpenAI(openAiPrompt ?? prompt, undefined, {
       requestId,
       operation: 'text-interpretation',
     }),
@@ -468,17 +483,26 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
       request.measurement,
       request.includeFaithReflection,
       request.listeningContext,
+      false,
+    );
+    const openAiPrompt = buildAnalysisPrompt(
+      request.measurement,
+      request.includeFaithReflection,
+      request.listeningContext,
+      true,
     );
     const routed = await runWithGeminiOpenAIFallback(providerFactory({
       uid,
       prompt,
+      openAiPrompt,
       requestId: String(req.id),
       request,
-    }), text => parseProviderJson(
+    }), (text, output) => parseProviderJson(
       text,
       request.measurement,
       request.listeningContext,
       request.includeFaithReflection,
+      output.finishReason,
     ));
     const analysis = explanationSchema.parse({
       ...routed.analysis,
@@ -521,11 +545,13 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
     reservationHeld = false;
     await jobs.markSettled(uid, idempotencyKey);
     req.log.info({
+      requestId: String(req.id),
       provider: routed.provider,
       model: routed.model,
       fallbackUsed: routed.fallbackUsed,
       durationMs: Date.now() - startedAt,
       creditsCharged: price.credits,
+      responseStatus: 'validated',
       ...providerUsageSummary(routed.attempts),
     }, 'Frequency interpretation completed');
     res.status(200).json(apiResponse);
@@ -614,7 +640,9 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
     }
     if (error instanceof AIProvidersUnavailableError) {
       req.log.warn({
+        requestId: String(req.id),
         durationMs: Date.now() - startedAt,
+        responseStatus: 'invalid_or_unavailable',
         ...providerUsageSummary(error.attempts),
       }, 'Both AI providers failed validation or availability checks');
       res.status(502).json({
@@ -623,7 +651,11 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
       });
       return;
     }
-    req.log.error({ durationMs: Date.now() - startedAt }, 'Frequency interpretation request failed');
+    req.log.error({
+      requestId: String(req.id),
+      durationMs: Date.now() - startedAt,
+      responseStatus: 'failed',
+    }, 'Frequency interpretation request failed');
     res.status(502).json({
       error: 'ZionCore could not complete this interpretation. Your measurement was not changed.',
       retryable: false,

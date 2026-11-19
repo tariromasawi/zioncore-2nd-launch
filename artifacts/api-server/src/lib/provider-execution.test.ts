@@ -27,6 +27,7 @@ test('provider telemetry records correlation, timing and token usage without con
   const output = {
     text: 'private prompt and response must not enter telemetry',
     usage: { inputTokens: 11, outputTokens: 4 },
+    finishReason: 'MAX_TOKENS',
   };
   assert.equal(await withProviderDeadline(async () => output, 50, {
     requestId: 'request-test-1',
@@ -34,6 +35,7 @@ test('provider telemetry records correlation, timing and token usage without con
     model: 'test-model',
     operation: 'text-interpretation',
     usageOf: value => (value as typeof output).usage,
+    finishReasonOf: value => (value as typeof output).finishReason,
     onEvent: event => events.push(event),
   }), output);
 
@@ -42,8 +44,20 @@ test('provider telemetry records correlation, timing and token usage without con
   assert.ok(events.every(event => Boolean(event.attemptId && event.startedAt && event.timestamp)));
   assert.equal(events[1]?.usage?.inputTokens, 11);
   assert.equal(events[1]?.usage?.outputTokens, 4);
+  assert.equal(events[1]?.finishReason, 'MAX_TOKENS');
   assert.equal(events[1]?.durationMs !== undefined, true);
   assert.doesNotMatch(JSON.stringify(events), /private prompt|response must not enter telemetry/);
+});
+
+test('provider telemetry drops malformed finish-reason values', async () => {
+  const events: ProviderAttemptEvent[] = [];
+  const output = { finishReason: 'private prompt text' };
+  await withProviderDeadline(async () => output, 50, {
+    finishReasonOf: value => (value as typeof output).finishReason,
+    onEvent: event => events.push(event),
+  });
+  assert.equal(events.find(event => event.event === 'succeeded')?.finishReason, null);
+  assert.doesNotMatch(JSON.stringify(events), /private prompt text/);
 });
 
 test('provider error telemetry excludes error messages while retaining safe diagnostics', async () => {

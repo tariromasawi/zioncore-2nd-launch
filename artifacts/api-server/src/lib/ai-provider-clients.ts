@@ -1,6 +1,11 @@
 import type { GoogleGenAI } from '@google/genai';
 import type { ProviderOutput, ProviderUsage } from './ai-provider-router';
-import { MAX_ANALYSIS_OUTPUT_TOKENS } from '@workspace/frequency-ai-contract';
+import {
+  MAX_ANALYSIS_OUTPUT_TOKENS,
+  audioSegmentInsightSchema,
+  explanationSchema,
+  toGeminiResponseJsonSchema,
+} from '@workspace/frequency-ai-contract';
 import {
   appendProviderText,
   withProviderDeadline,
@@ -14,6 +19,24 @@ export const ZIONCORE_2ND_VERTEX_PROJECT_ID = 'zioncore-2nd-production';
 export const ZIONCORE_2ND_VERTEX_LOCATION = 'eu';
 export const OPENAI_ANALYSIS_MODEL = 'gpt-5.4-mini';
 export const GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS = 256;
+export const GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA =
+  toGeminiResponseJsonSchema(explanationSchema);
+export const GEMINI_AUDIO_SEGMENT_RESPONSE_JSON_SCHEMA =
+  toGeminiResponseJsonSchema(audioSegmentInsightSchema);
+
+export function buildGeminiJsonGenerationConfig(
+  abortSignal: AbortSignal,
+  responseJsonSchema: Record<string, unknown>,
+  maxOutputTokens: number,
+) {
+  return {
+    abortSignal,
+    maxOutputTokens,
+    responseMimeType: 'application/json' as const,
+    responseJsonSchema,
+  };
+}
+
 export type AIProviderRequestContext = Pick<
   ProviderAttemptTelemetry,
   'requestId' | 'operation'
@@ -221,25 +244,29 @@ export async function generateWithGemini(
     const stream = await ai.models.generateContentStream({
       model,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        abortSignal: signal,
-        maxOutputTokens: MAX_ANALYSIS_OUTPUT_TOKENS,
-        responseMimeType: 'application/json',
-      },
+      config: buildGeminiJsonGenerationConfig(
+        signal,
+        GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA,
+        MAX_ANALYSIS_OUTPUT_TOKENS,
+      ),
     });
 
     let text = '';
     let usage: ProviderUsage | undefined;
+    let finishReason: string | null = null;
     for await (const chunk of stream) {
       text = appendProviderText(text, chunk.text ?? '');
       if (chunk.usageMetadata)
         usage = normalizeGeminiUsage(chunk.usageMetadata);
+      const candidateFinishReason = chunk.candidates?.[0]?.finishReason;
+      if (candidateFinishReason) finishReason = String(candidateFinishReason);
     }
 
     return {
       text,
       model,
       usage: usage ?? normalizeGeminiUsage(),
+      finishReason,
     };
   }, timeoutMs, {
     ...context,
@@ -250,6 +277,7 @@ export async function generateWithGemini(
       const usage = (result as ProviderOutput | null)?.usage;
       return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
     },
+    finishReasonOf: result => (result as ProviderOutput | null)?.finishReason,
   });
 }
 
@@ -282,16 +310,19 @@ export async function generateWithGeminiAudioSegment(
           ],
         },
       ],
-      config: {
-        abortSignal: signal,
-        maxOutputTokens: GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS,
-        responseMimeType: 'application/json',
-      },
+      config: buildGeminiJsonGenerationConfig(
+        signal,
+        GEMINI_AUDIO_SEGMENT_RESPONSE_JSON_SCHEMA,
+        GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS,
+      ),
     });
     return {
       text: response.text ?? '',
       model,
       usage: normalizeGeminiUsage(response.usageMetadata),
+      finishReason: response.candidates?.[0]?.finishReason
+        ? String(response.candidates[0].finishReason)
+        : null,
     };
   }, timeoutMs, {
     ...context,
@@ -302,6 +333,7 @@ export async function generateWithGeminiAudioSegment(
       const usage = (result as ProviderOutput | null)?.usage;
       return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
     },
+    finishReasonOf: result => (result as ProviderOutput | null)?.finishReason,
   });
 }
 
@@ -332,9 +364,12 @@ export async function generateWithOpenAI(
     let text = '';
     let inputTokens: number | undefined;
     let outputTokens: number | undefined;
+    let finishReason: string | null = null;
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (typeof content === 'string') text = appendProviderText(text, content);
+      const candidateFinishReason = chunk.choices[0]?.finish_reason;
+      if (candidateFinishReason) finishReason = candidateFinishReason;
       if (chunk.usage) {
         inputTokens = chunk.usage.prompt_tokens;
         outputTokens = chunk.usage.completion_tokens;
@@ -345,6 +380,7 @@ export async function generateWithOpenAI(
       text,
       model: OPENAI_ANALYSIS_MODEL,
       usage: normalizeUsage(inputTokens, outputTokens),
+      finishReason,
     };
   }, timeoutMs, {
     ...context,
@@ -355,5 +391,6 @@ export async function generateWithOpenAI(
       const usage = (result as ProviderOutput | null)?.usage;
       return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
     },
+    finishReasonOf: result => (result as ProviderOutput | null)?.finishReason,
   });
 }
