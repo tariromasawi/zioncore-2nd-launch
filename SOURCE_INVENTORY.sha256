@@ -218,7 +218,6 @@
 5ebb1dff51042d85de85c2a8046f63b008291935058d173680b4a83836787e51  lib/api-zod/src/generated/types/adminFirebaseSummary.ts
 5ed309af089d61433220d4dd5a95f4bdbfa2b389aea37a56efce623689277df8  artifacts/api-server/src/lib/ai-request-guard.test.ts
 5edc16ebe32e69710de3728e45d7da51440376d09c5f0634ea1a2e341827a70a  artifacts/zioncore-frequency-lab/src/integration/firebase-auth-emulator.test.ts
-5edee42a6aff89307b59d9f9baff9b03bf905ba1ef96bcae09c4102701abbaa9  artifacts/zioncore-frequency-lab/FIREBASE_SETUP_ZIONCORE_2ND.md
 5f5d6f739ba06eb7f1004097e835ff9b6f40910f3c61b26f70ca7198f3dc3740  artifacts/zioncore-frequency-lab/src/lib/startup-bundle.ts
 5fe55a8bb008cfdbc9f5ed41ffe45bfc67d89af6d5d7103ea3f077192a761cf3  lib/api-zod/src/generated/types/adminProviderSummary.ts
 600dd5f5dd7d123c35b60c1f20d5cc8bd7a28297beb8d9ecc953187677de4d34  artifacts/zioncore-frequency-lab/src/lib/celestial-audio.ts
@@ -267,6 +266,7 @@
 6ebc433766f0e58725e626e0ebdde7fb76f21a35330981350cdc20960f4ce632  artifacts/zioncore-frequency-lab/src/lib/protocol-benchmark.ts
 6f54ef20b4bb436906fcfee797f92170576135479724a7aa9d71a43dd29e19e6  artifacts/zioncore-frequency-lab/src/components/observation-backup-restore.tsx
 6f744470f6aa8a92273e4de5fe2e581026f3f41559b137f14f65dd4a31e9501d  lib/api-zod/src/generated/types/adminWebhookSummaryStatus.ts
+6fa785c3ab718de43b90c07fd3aea7749fec21a479ff2c9516151979cf2c059d  artifacts/zioncore-frequency-lab/FIREBASE_SETUP_ZIONCORE_2ND.md
 700427cb2cce1c7614ba0000336835ba26e5cfdbdb6479bcfde0ea2424db6347  artifacts/api-server/src/test-utils/firestore-emulator.ts
 715d21153c7f85d141ca6b73e9eb85f861e2e72c475d4eb1f7c4252ca6b85409  artifacts/zioncore-frequency-lab/src/lib/local-processing-routing.test.ts
 71e8a496f1a7ca8440257d829bba9c857e6c8e605e5248a3a0daf7e8285d4806  artifacts/zioncore-frequency-lab/src/lib/startup-bundle.test.ts

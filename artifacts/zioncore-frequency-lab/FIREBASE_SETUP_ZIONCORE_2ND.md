@@ -106,10 +106,12 @@ chat message.
   20/20 tests.
 - Storage is not enabled because the current application processes audio in the
   browser and stores only bounded observation metadata in Firestore.
-- A minimal text-only provider check on `gemini-3.8-flash` succeeded with
-  `STOP`; usage reported 7 prompt, 1 output, and 118 thought tokens. It contained
-  no customer data and verified provider reachability only. Application AI
-  remains gated until project/provider quotas and usage controls are confirmed.
+- A historical text-only smoke check on `gemini-3.8-flash` returned `STOP` with
+  usage of 7 prompt, 1 candidate, and 118 thought tokens. Its authentication
+  path was not captured, and it verified only that a provider returned text;
+  it was not a valid ZionCore interpretation or report. Keep customer AI gated
+  until the standalone Vertex route produces a schema-valid report and usage
+  controls are verified.
 
 ### Independent deployment configuration audit — 18 November 2026
 
@@ -156,23 +158,70 @@ chat message.
 - The deployment workflow now selects Vertex ADC and does not require a Gemini
   Secret Manager version. If an OpenAI fallback is configured, its own secret
   version is still required.
-- One owner-authorized verification batch attempted a text stream and a
-  synthetic 0.25-second audio interpretation, each capped at 32 output tokens.
-  The batch timed out after five minutes before emitting per-request results.
-  A read-only Cloud Logging query found no matching entries, so it is unknown
-  whether either request was accepted; response validity, token usage, and
-  actual cost are unavailable. The batch was not retried to avoid duplicate
-  charges.
-- Non-billable CountTokens measured 11 text input tokens and 26 prompt-plus-audio
-  tokens. With the 32-token output cap for each request and conservative
-  $2/$10-per-million-token rates, the combined maximum estimate is $0.000714;
-  the actual charge is unknown.
-- The Service Usage API returned EU online-prediction quota definitions but no
-  model-specific numeric effective limit for this project/model. The Cloud
-  Billing Budgets API returned HTTP 403 because it is not enabled, so no
-  project budget was confirmed. The test was limited to the explicitly
-  authorized two-request batch; broader generation remains unverified and
-  production deployment is still gated.
+- The first owner-authorized verification batch attempted a text stream and a
+  synthetic-audio request, each capped at 32 output tokens, but timed out at the
+  outer five-minute tool deadline without per-request results. Its harness had
+  no per-request deadline or incremental output. Non-billable CountTokens
+  measured 11 text input tokens and 26 prompt-plus-audio tokens; the combined
+  estimate was $0.000714 USD using conservative $2/$10-per-million-token rates.
+  Whether either call was accepted and its actual usage remain unknown.
+- A later owner-authorized controlled verification made one genuine
+  `gemini-3.8-flash` Vertex AI text-stream request using the dedicated runtime
+  identity. The SDK stream completed in 2,231 ms, but the returned text failed
+  strict JSON validation. Correlation ID
+  `b19a0b59-5aea-433e-b106-cac44ff60613`; attempt ID
+  `3d0a97a2-9489-4151-88c6-0fba07547571`. The one-off test harness did not retain
+  the exact HTTP status or response usage metadata after parsing failed; actual
+  usage and charge are therefore unknown. Preflight CountTokens measured 15
+  input tokens. The conservative estimate with the 32-token output limit is
+  $0.000350 USD for this text request, not a hard cap. The earlier $0.000722
+  estimate combined this request's preflight with the previous 26-token audio
+  preflight.
+- The synthetic-audio generation was skipped because the text check did not
+  pass. No automatic retry or additional Gemini generation was made. The
+  temporary Token Creator grant was restricted to the dedicated runtime
+  service account, removed, and independently verified absent. Read-only
+  Cloud Logging and Vertex EU/Global metric queries returned no per-request
+  records for the test window; that does not establish actual billing.
+- Billing Budgets API is now enabled. A project-scoped £1/month alert-only
+  budget has 25%, 50%, 90%, 100% current-spend and 100% forecast alerts; it is
+  not a spending cap. Project-scoped budget visibility works, but account-wide
+  budget listing requires billing-account access. The quota query returned no
+  model-specific numeric effective limit.
+- Provider readiness as audited on this branch:
+
+  | Provider path | Source and intended use | Authentication/configuration | Real generation evidence | Standalone launch state |
+  | --- | --- | --- | --- | --- |
+  | Vertex AI / Gemini | `@google/genai`; `gemini-3.8-flash` is the production text and audio model | Dedicated runtime service account with Vertex ADC; model access and CountTokens verified | One text stream completed, but failed strict JSON validation; no valid interpretation, usage metadata, or exact HTTP status retained. Audio generation was skipped. | Configured, but not proven to produce a valid report; do not enable paid use |
+  | Google AI Studio / Gemini key | Supported optional `GOOGLE_GENAI_API_KEY` path; selects `gemini-3-flash-preview` | Not selected by the standalone deployment; do not reuse ZionCore 1 credentials | No generation test | Unverified and not selected |
+  | Replit-managed Gemini | Supported by the workspace integration adapter and its paired integration variables | No standalone Cloud Run configuration verified | No generation test | Not a confirmed production provider |
+  | OpenAI | `gpt-5.4-mini`, one bounded text fallback | Optional ZionCore 2nd Secret Manager resource has no enabled version | No generation test or fallback test | Unavailable for production fallback |
+  | Replit-managed OpenAI | Supported by the workspace integration adapter and paired integration variables | No standalone Cloud Run configuration verified | No generation test | Not a confirmed production provider |
+  | Browser Gemini Nano | Optional local model in the free listening interface, only after user consent | Browser capability-dependent, no server credential | No browser model inference verified in this check; unsupported browsers use local rules-based analysis | Local-only optional path; iPhone Safari uses the local fallback |
+  | Deterministic local analysis | Browser signal measurement and rules-based reports | No provider or cloud credential required | Independent of the Gemini generation check | Local tools remain separate from cloud AI |
+
+- The server router uses Gemini as the primary derived-feature interpretation
+  provider and permits one OpenAI fallback after provider or validation
+  failure. Raw audio segment review uses Gemini; the subsequent structured
+  report may use the bounded OpenAI fallback. It has not been exercised against
+  a real OpenAI endpoint. Current provider selection is
+  capability- and configuration-based, not a measured complexity/latency
+  optimizer. Token-based cost estimates, signed quotes, credit reservations,
+  and fail-closed paid-usage flags exist. The current release configuration
+  keeps paid usage and checkout disabled. No empirically validated
+  cost-per-valid-report is available.
+- The full application provider-path tests pass (116 API unit tests); four
+  frequency contract and Genesis tests pass. The immutable Genesis source at
+  `governance/genesis/GENESIS_SEED.original.txt` matches SHA-256
+  `f87c324da247443bcf6ac4c6b799241e871abc3dec8aaa69c921cd123943f95e`.
+  `buildAnalysisPrompt` includes the bounded, versioned Genesis operational
+  context and selected domain references; the complete archive is not copied
+  into each provider request. These checks verify source wiring and integrity,
+  not a valid production AI report.
+- These results do not verify a valid customer-facing AI report, fallback
+  generation, Cloud Run metadata-server ADC, or the deployed application.
+  Production deployment remains gated; do not represent AI generation as
+  launch-verified.
 
 ## Data and access boundaries
 
