@@ -20,13 +20,17 @@ project configuration:
 - `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_DEPLOYER_SERVICE_ACCOUNT` for
   GitHub-to-Google Workload Identity Federation.
 - `ZIONCORE_2ND_RUNTIME_SERVICE_ACCOUNT`, a dedicated Cloud Run identity with
-  only the Firebase Auth/Firestore permissions the API requires and
-  `secretAccessor` on its configured AI secrets.
-- `ZIONCORE_2ND_GEMINI_SECRET_NAME` in Google Secret Manager; optionally
-  `ZIONCORE_2ND_OPENAI_SECRET_NAME` for the fallback provider.
+  Firebase Auth/Firestore permissions, `roles/aiplatform.user`, and
+  `secretAccessor` only on the optional OpenAI fallback secret.
 - `ZIONCORE_2ND_FIREBASE_API_KEY` and `ZIONCORE_2ND_APPCHECK_SITE_KEY` as
   GitHub environment variables. They are public client values; no credential
   or provider key was added to GitHub.
+
+Gemini production requests use the Google Gen AI SDK with Vertex AI and the
+Cloud Run runtime identity through ADC. The configured model is
+`gemini-3.8-flash` in the supported `eu` multi-region; no Gemini API key or
+Gemini Secret Manager version is required. OpenAI remains optional and requires
+its own Secret Manager version only if that fallback is configured.
 
 The WIF pool/provider and dedicated deployer/runtime identities now exist in
 `zioncore-2nd-production`. The provider trusts only the repository's
@@ -37,15 +41,23 @@ It also has `roles/run.admin` because the workflow creates the API as a public
 Cloud Run service for Firebase Hosting rewrites and must set its invoker policy.
 The deployer may attach only the dedicated runtime identity. The Cloud Build
 default compute identity has `roles/run.builder`. The runtime has Firestore/Auth
-roles and `secretAccessor` only on the two ZionCore 2nd AI secret resources.
+roles, Agent Platform User, and `secretAccessor` only on the optional OpenAI
+secret. The unused Gemini secret resource is retained empty and the runtime has
+no access to it.
 
-Both Secret Manager resources exist, but neither has an enabled version. The
-workflow now checks for enabled versions without reading their contents and
-will stop before deployment until a ZionCore 2nd Gemini key is supplied.
-No key was copied from the Replit workspace. The Cloud Billing API was enabled
-only to inspect billing status; the project already reports an attached billing
-account (`billingEnabled=true`). No billing attachment or payment setting was
-changed.
+The Vertex AI API is enabled, and the runtime has the documented
+`roles/aiplatform.user` role. A temporary service-account impersonation grant was
+used and removed after the `@google/genai` SDK successfully counted both text
+tokens and a synthetic WAV's audio tokens as the runtime identity. Google
+documents CountTokens as non-billable. This verifies authentication,
+model/location availability, and text/audio request formats; it does not test
+paid generation or streaming.
+
+The optional OpenAI Secret Manager resource has no enabled version. No Gemini
+or OpenAI key was copied from the Replit workspace. The Cloud Billing API was
+enabled only to inspect billing status; the project already reports an attached
+billing account (`billingEnabled=true`). No billing attachment or payment
+setting was changed.
 
 The Firebase Hosting site exists at
 `https://zioncore-2nd-production.web.app`, but it still returns HTTP 404 and
@@ -105,5 +117,6 @@ For Cloud Run, Firebase Admin uses Application Default Credentials only when
 `ZIONCORE_2ND_ADMIN_AUTH_MODE=adc` and the runtime service is
 `zioncore-2nd-api`. The Replit service-account JSON remains supported for the
 existing Replit runtime and is not copied into GitHub or Cloud Run. Direct
-Gemini and OpenAI keys are supported through `GOOGLE_GENAI_API_KEY` and
-`OPENAI_API_KEY`, respectively; inject them from Secret Manager only.
+Gemini API keys remain an optional development path through
+`GOOGLE_GENAI_API_KEY`; Cloud Run uses Vertex ADC. OpenAI keys are injected from
+Secret Manager only and remain optional.

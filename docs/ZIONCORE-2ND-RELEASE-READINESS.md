@@ -82,18 +82,22 @@
   registered App Check configuration, and the reCAPTCHA key allows only the
   Firebase Hosting domains. Production-host token exchange remains unverified
   because the site has not been deployed.
-- Gemini and optional OpenAI Secret Manager resources exist but have no enabled
-  versions. No AI key was copied from Replit. The deployment workflow now stops
-  before deploying if the required key version is absent.
+- Gemini production no longer depends on a Secret Manager key. The Cloud Run
+  runtime uses Vertex AI through ADC; the unused Gemini secret resource remains
+  empty and the runtime has no access to it. OpenAI remains optional and needs
+  an enabled secret version only if that fallback is configured.
 - Cloud Run, Cloud Build, and Firebase Hosting APIs are enabled. The Cloud
   Billing API was enabled for inspection, and the project already reports an
   attached billing account. No billing attachment was changed. Google and Apple
   sign-in remain disabled; browser Firestore access and paid features remain
   fail-closed.
-- The Cloud Run source uses Application Default Credentials only for the named
-  ZionCore 2nd service, but there is no deployed service on which to verify that
-  runtime path. The Secret Manager entries are empty, and no production AI call
-  has been made.
+- Vertex AI (`aiplatform.googleapis.com`) is enabled and the dedicated runtime
+  account has `roles/aiplatform.user`. Using a short-lived impersonated token for
+  that runtime identity, the `@google/genai` SDK successfully counted text and
+  synthetic WAV tokens for `gemini-3.8-flash` in the EU multi-region. Google
+  documents CountTokens as non-billable. This verifies IAM, model/location, and
+  text/audio request formats; Cloud Run's metadata-based ADC and billable
+  generation/streaming remain unverified.
 - The deployment container was not built locally and the workflow was not run;
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.

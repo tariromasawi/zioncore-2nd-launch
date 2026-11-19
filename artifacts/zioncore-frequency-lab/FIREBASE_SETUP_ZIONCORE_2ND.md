@@ -129,12 +129,33 @@ chat message.
 - The Cloud Billing API was enabled for read-only status inspection. Billing
   was already attached (`billingEnabled=true`); its attachment was not changed.
 - Secret Manager contains the ZionCore 2nd Gemini and optional OpenAI secret
-  resources, both with zero enabled versions. Provider credentials were not
-  copied from Replit or written to GitHub. The workflow refuses deployment
-  until the required Gemini version exists.
+  resources. The Gemini resource remains empty and is no longer used by the
+  ADC deployment path; the optional OpenAI resource has no enabled version.
+  Provider credentials were not copied from Replit or written to GitHub.
 - The Hosting site exists but still serves HTTP 404, and no Cloud Run service
   exists. No application deployment or live production App Check token test has
   been performed.
+
+### Vertex AI ADC verification — 19 November 2026
+
+- The Google Gen AI SDK is configured for Vertex AI using the Cloud Run runtime
+  service account and Application Default Credentials. The project's
+  `aiplatform.googleapis.com` API was already enabled. The runtime account now
+  has `roles/aiplatform.user`; it was not given a Gemini API key.
+- `gemini-3.8-flash` supports text and audio input and the EU multi-region. The
+  selected location is `eu`, matching the independent European deployment.
+- To verify runtime permissions without creating a key, a temporary
+  service-account impersonation grant was added to the runtime identity and
+  removed after the check. With a short-lived token for that identity, the
+  installed `@google/genai` SDK's CountTokens method succeeded for text and a
+  synthetic one-second WAV. Google documents CountTokens as having no charge.
+- This verifies the SDK's Vertex endpoint, runtime identity permissions, model
+  and location, and accepted text/audio input shapes. It does not verify a
+  billable `generateContent` or stream request, nor Cloud Run's metadata-server
+  ADC because no Cloud Run service has been deployed.
+- The deployment workflow now selects Vertex ADC and does not require a Gemini
+  Secret Manager version. If an OpenAI fallback is configured, its own secret
+  version is still required.
 
 ## Data and access boundaries
 

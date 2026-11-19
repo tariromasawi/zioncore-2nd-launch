@@ -15,7 +15,9 @@ import {
 
 test('prefers the owner-provided Google API key and validates integration configuration', () => {
   assert.equal(
-    getGeminiCredentialSource({ GOOGLE_GENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv),
+    getGeminiCredentialSource({
+      GOOGLE_GENAI_API_KEY: 'configured',
+    } as NodeJS.ProcessEnv),
     'google-api-key',
   );
   assert.equal(
@@ -31,10 +33,17 @@ test('prefers the owner-provided Google API key and validates integration config
     } as NodeJS.ProcessEnv),
     'unconfigured',
   );
-  assert.equal(isGeminiConfigured({ GOOGLE_GENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv), true);
+  assert.equal(
+    isGeminiConfigured({
+      GOOGLE_GENAI_API_KEY: 'configured',
+    } as NodeJS.ProcessEnv),
+    true,
+  );
   assert.equal(isGeminiConfigured({} as NodeJS.ProcessEnv), false);
   assert.equal(
-    getGeminiAnalysisModel({ GOOGLE_GENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv),
+    getGeminiAnalysisModel({
+      GOOGLE_GENAI_API_KEY: 'configured',
+    } as NodeJS.ProcessEnv),
     'gemini-3-flash-preview',
   );
   assert.equal(
@@ -46,9 +55,38 @@ test('prefers the owner-provided Google API key and validates integration config
   );
 });
 
+test('Vertex ADC mode takes precedence and requires the dedicated EU project configuration', () => {
+  const env = {
+    ZIONCORE_2ND_GEMINI_AUTH_MODE: 'vertex-adc',
+    GOOGLE_CLOUD_PROJECT: 'zioncore-2nd-production',
+    GOOGLE_CLOUD_LOCATION: 'eu',
+    GOOGLE_GENAI_API_KEY: 'ignored-in-ADC-mode',
+  } as NodeJS.ProcessEnv;
+
+  assert.equal(getGeminiCredentialSource(env), 'vertex-adc');
+  assert.equal(isGeminiConfigured(env), true);
+  assert.equal(getGeminiAnalysisModel(env), 'gemini-3.8-flash');
+  assert.equal(
+    isGeminiConfigured({
+      ...env,
+      GOOGLE_CLOUD_PROJECT: 'ethereal-throne-b20e6',
+    } as NodeJS.ProcessEnv),
+    false,
+  );
+  assert.equal(
+    isGeminiConfigured({
+      ...env,
+      GOOGLE_CLOUD_LOCATION: 'europe-west2',
+    } as NodeJS.ProcessEnv),
+    false,
+  );
+});
+
 test('OpenAI provider supports direct keys for standalone hosting and Replit integration keys', () => {
   assert.equal(
-    getOpenAICredentialSource({ OPENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv),
+    getOpenAICredentialSource({
+      OPENAI_API_KEY: 'configured',
+    } as NodeJS.ProcessEnv),
     'openai-api-key',
   );
   assert.equal(
@@ -59,10 +97,15 @@ test('OpenAI provider supports direct keys for standalone hosting and Replit int
     'replit-integration',
   );
   assert.equal(
-    getOpenAICredentialSource({ AI_INTEGRATIONS_OPENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv),
+    getOpenAICredentialSource({
+      AI_INTEGRATIONS_OPENAI_API_KEY: 'configured',
+    } as NodeJS.ProcessEnv),
     'unconfigured',
   );
-  assert.equal(isOpenAIConfigured({ OPENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv), true);
+  assert.equal(
+    isOpenAIConfigured({ OPENAI_API_KEY: 'configured' } as NodeJS.ProcessEnv),
+    true,
+  );
   assert.equal(isOpenAIConfigured({} as NodeJS.ProcessEnv), false);
 });
 
@@ -131,6 +174,13 @@ test('Gemini audio usage estimate applies the documented audio input rate conser
       outputTokens: 256,
     }),
     null,
+  );
+  assert.equal(
+    estimateGeminiAudioUsageMicroUsd('gemini-3.8-flash', {
+      inputTokens: 1_000,
+      outputTokens: 256,
+    }),
+    4_560,
   );
   assert.equal(
     estimateGeminiAudioUsageMicroUsd('gemini-3-flash-preview', {

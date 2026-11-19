@@ -1,29 +1,49 @@
 import type { GoogleGenAI } from '@google/genai';
 import type { ProviderOutput, ProviderUsage } from './ai-provider-router';
 import { MAX_ANALYSIS_OUTPUT_TOKENS } from '@workspace/frequency-ai-contract';
-import { appendProviderText, withProviderDeadline, PROVIDER_ATTEMPT_TIMEOUT_MS } from './provider-execution';
+import {
+  appendProviderText,
+  withProviderDeadline,
+  PROVIDER_ATTEMPT_TIMEOUT_MS,
+} from './provider-execution';
 
 export const GEMINI_ANALYSIS_MODEL = 'gemini-3.8-flash';
 export const GOOGLE_GENAI_ANALYSIS_MODEL = 'gemini-3-flash-preview';
+export const ZIONCORE_2ND_VERTEX_PROJECT_ID = 'zioncore-2nd-production';
+export const ZIONCORE_2ND_VERTEX_LOCATION = 'eu';
 export const OPENAI_ANALYSIS_MODEL = 'gpt-5.4-mini';
 export const GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS = 256;
 
-export type GeminiCredentialSource = 'google-api-key' | 'replit-integration' | 'unconfigured';
-export type OpenAICredentialSource = 'openai-api-key' | 'replit-integration' | 'unconfigured';
+export type GeminiCredentialSource =
+  'vertex-adc' | 'google-api-key' | 'replit-integration' | 'unconfigured';
+export type OpenAICredentialSource =
+  'openai-api-key' | 'replit-integration' | 'unconfigured';
 
 export function getGeminiCredentialSource(
   env: NodeJS.ProcessEnv = process.env,
 ): GeminiCredentialSource {
+  if (env.ZIONCORE_2ND_GEMINI_AUTH_MODE?.trim() === 'vertex-adc')
+    return 'vertex-adc';
   if (env.GOOGLE_GENAI_API_KEY?.trim()) return 'google-api-key';
   if (
-    env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim()
-    && env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim()
-  ) return 'replit-integration';
+    env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim() &&
+    env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim()
+  )
+    return 'replit-integration';
   return 'unconfigured';
 }
 
-export function isGeminiConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  return getGeminiCredentialSource(env) !== 'unconfigured';
+export function isGeminiConfigured(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const credentialSource = getGeminiCredentialSource(env);
+  if (credentialSource === 'vertex-adc') {
+    return (
+      env.GOOGLE_CLOUD_PROJECT?.trim() === ZIONCORE_2ND_VERTEX_PROJECT_ID &&
+      env.GOOGLE_CLOUD_LOCATION?.trim() === ZIONCORE_2ND_VERTEX_LOCATION
+    );
+  }
+  return credentialSource !== 'unconfigured';
 }
 
 export function getOpenAICredentialSource(
@@ -31,17 +51,22 @@ export function getOpenAICredentialSource(
 ): OpenAICredentialSource {
   if (env.OPENAI_API_KEY?.trim()) return 'openai-api-key';
   if (
-    env.AI_INTEGRATIONS_OPENAI_API_KEY?.trim()
-    && env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim()
-  ) return 'replit-integration';
+    env.AI_INTEGRATIONS_OPENAI_API_KEY?.trim() &&
+    env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim()
+  )
+    return 'replit-integration';
   return 'unconfigured';
 }
 
-export function isOpenAIConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+export function isOpenAIConfigured(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
   return getOpenAICredentialSource(env) !== 'unconfigured';
 }
 
-export function getGeminiAnalysisModel(env: NodeJS.ProcessEnv = process.env): string {
+export function getGeminiAnalysisModel(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   return getGeminiCredentialSource(env) === 'google-api-key'
     ? GOOGLE_GENAI_ANALYSIS_MODEL
     : GEMINI_ANALYSIS_MODEL;
@@ -52,16 +77,33 @@ let geminiClientPromise: Promise<GoogleGenAI> | undefined;
 async function getGeminiClient(): Promise<GoogleGenAI> {
   if (!geminiClientPromise) {
     const credentialSource = getGeminiCredentialSource();
-    if (credentialSource === 'google-api-key') {
+    if (credentialSource === 'vertex-adc') {
+      const project = process.env.GOOGLE_CLOUD_PROJECT?.trim();
+      const location = process.env.GOOGLE_CLOUD_LOCATION?.trim();
+      if (
+        project !== ZIONCORE_2ND_VERTEX_PROJECT_ID ||
+        location !== ZIONCORE_2ND_VERTEX_LOCATION
+      ) {
+        throw new Error(
+          `Vertex AI ADC requires GOOGLE_CLOUD_PROJECT=${ZIONCORE_2ND_VERTEX_PROJECT_ID} and GOOGLE_CLOUD_LOCATION=${ZIONCORE_2ND_VERTEX_LOCATION}.`,
+        );
+      }
+      geminiClientPromise = import('@google/genai').then(
+        ({ GoogleGenAI: Client }) =>
+          new Client({ enterprise: true, project, location }),
+      );
+    } else if (credentialSource === 'google-api-key') {
       const apiKey = process.env.GOOGLE_GENAI_API_KEY!.trim();
-      geminiClientPromise = import('@google/genai')
-        .then(({ GoogleGenAI: Client }) => new Client({ apiKey }));
+      geminiClientPromise = import('@google/genai').then(
+        ({ GoogleGenAI: Client }) => new Client({ apiKey }),
+      );
     } else if (credentialSource === 'replit-integration') {
-      geminiClientPromise = import('@workspace/integrations-gemini-ai')
-        .then(({ ai }) => ai);
+      geminiClientPromise = import('@workspace/integrations-gemini-ai').then(
+        ({ ai }) => ai,
+      );
     } else {
       throw new Error(
-        'Configure GOOGLE_GENAI_API_KEY or the Gemini AI integration before using Gemini.',
+        'Configure Vertex AI ADC, GOOGLE_GENAI_API_KEY, or the Gemini AI integration before using Gemini.',
       );
     }
   }
@@ -72,7 +114,9 @@ const conservativeStandardRatesUsdPerMillionTokens: Record<
   string,
   { input: number; output: number }
 > = {
-  // Use Gemini's announced standard rate, not the lower introductory rate.
+  // EU standard Gemini 3.8 Flash rates are $1.65/$8.25 after introductory
+  // pricing; retain $2/$10 as a conservative ceiling for cost accounting.
+  // https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing
   [GEMINI_ANALYSIS_MODEL]: { input: 2, output: 10 },
   // Google lists Gemini 3 Flash Preview at $0.50 input / $3.00 output per 1M tokens.
   // https://ai.google.dev/gemini-api/docs/pricing#gemini-3-flash-preview
@@ -84,7 +128,10 @@ function normalizeTokenCount(value?: number): number | undefined {
   return Number.isSafeInteger(value) && value! >= 0 ? value : undefined;
 }
 
-function normalizeUsage(inputTokens?: number, outputTokens?: number): ProviderUsage {
+function normalizeUsage(
+  inputTokens?: number,
+  outputTokens?: number,
+): ProviderUsage {
   return {
     inputTokens: normalizeTokenCount(inputTokens) ?? null,
     outputTokens: normalizeTokenCount(outputTokens) ?? null,
@@ -124,11 +171,11 @@ export function estimateProviderUsageMicroUsd(
     !Number.isSafeInteger(usage.outputTokens) ||
     usage.inputTokens < 0 ||
     usage.outputTokens < 0
-  ) return null;
+  )
+    return null;
 
   const estimate = Math.ceil(
-    usage.inputTokens * rates.input +
-      usage.outputTokens * rates.output,
+    usage.inputTokens * rates.input + usage.outputTokens * rates.output,
   );
   return Number.isSafeInteger(estimate) ? estimate : null;
 }
@@ -138,14 +185,23 @@ export function estimateGeminiAudioUsageMicroUsd(
   usage?: ProviderUsage | null,
 ): number | null {
   if (
-    model !== GOOGLE_GENAI_ANALYSIS_MODEL ||
     typeof usage?.inputTokens !== 'number' ||
     typeof usage.outputTokens !== 'number'
-  ) return null;
+  )
+    return null;
 
-  // Google lists Gemini 3 Flash Preview audio input at $1/1M tokens and output at $3/1M.
-  // Price every input token at the higher audio rate (text input is cheaper) as a conservative estimate.
-  const microUsd = usage.inputTokens + (usage.outputTokens * 3);
+  const rates =
+    model === GOOGLE_GENAI_ANALYSIS_MODEL
+      ? { input: 1, output: 3 }
+      : model === GEMINI_ANALYSIS_MODEL
+        ? { input: 2, output: 10 }
+        : null;
+  if (!rates) return null;
+
+  // Vertex EU pricing for Gemini 3.8 Flash is below this standard-rate ceiling.
+  // Using the existing conservative rates avoids understating the audio cost.
+  const microUsd =
+    usage.inputTokens * rates.input + usage.outputTokens * rates.output;
   return Number.isSafeInteger(microUsd) ? microUsd : null;
 }
 
@@ -153,7 +209,7 @@ export async function generateWithGemini(
   prompt: string,
   timeoutMs = PROVIDER_ATTEMPT_TIMEOUT_MS,
 ): Promise<ProviderOutput> {
-  return withProviderDeadline(async signal => {
+  return withProviderDeadline(async (signal) => {
     const ai = await getGeminiClient();
     const model = getGeminiAnalysisModel();
     const stream = await ai.models.generateContentStream({
@@ -170,7 +226,8 @@ export async function generateWithGemini(
     let usage: ProviderUsage | undefined;
     for await (const chunk of stream) {
       text = appendProviderText(text, chunk.text ?? '');
-      if (chunk.usageMetadata) usage = normalizeGeminiUsage(chunk.usageMetadata);
+      if (chunk.usageMetadata)
+        usage = normalizeGeminiUsage(chunk.usageMetadata);
     }
 
     return {
@@ -186,21 +243,29 @@ export async function generateWithGeminiAudioSegment(
   audioBase64: string,
   timeoutMs = 12_000,
 ): Promise<ProviderOutput> {
-  return withProviderDeadline(async signal => {
-    if (getGeminiCredentialSource() !== 'google-api-key') {
-      throw new Error('Direct audio review requires the configured Google GenAI API key.');
+  return withProviderDeadline(async (signal) => {
+    const credentialSource = getGeminiCredentialSource();
+    if (
+      credentialSource !== 'google-api-key' &&
+      credentialSource !== 'vertex-adc'
+    ) {
+      throw new Error(
+        'Direct audio review requires Google GenAI API-key or Vertex AI ADC authentication.',
+      );
     }
     const ai = await getGeminiClient();
     const model = getGeminiAnalysisModel();
     const response = await ai.models.generateContent({
       model,
-      contents: [{
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inlineData: { mimeType: 'audio/wav', data: audioBase64 } },
-        ],
-      }],
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType: 'audio/wav', data: audioBase64 } },
+          ],
+        },
+      ],
       config: {
         abortSignal: signal,
         maxOutputTokens: GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS,
@@ -219,19 +284,24 @@ export async function generateWithOpenAI(
   prompt: string,
   timeoutMs = PROVIDER_ATTEMPT_TIMEOUT_MS,
 ): Promise<ProviderOutput> {
-  return withProviderDeadline(async signal => {
+  return withProviderDeadline(async (signal) => {
     if (!isOpenAIConfigured()) {
-      throw new Error('Configure OPENAI_API_KEY or the OpenAI AI integration before using OpenAI.');
+      throw new Error(
+        'Configure OPENAI_API_KEY or the OpenAI AI integration before using OpenAI.',
+      );
     }
     const { openai } = await import('@workspace/integrations-openai-ai-server');
-    const stream = await openai.chat.completions.create({
-      model: OPENAI_ANALYSIS_MODEL,
-      max_completion_tokens: MAX_ANALYSIS_OUTPUT_TOKENS,
-      response_format: { type: 'json_object' },
-      messages: [{ role: 'user', content: prompt }],
-      stream: true,
-      stream_options: { include_usage: true },
-    }, { signal, timeout: PROVIDER_ATTEMPT_TIMEOUT_MS, maxRetries: 0 });
+    const stream = await openai.chat.completions.create(
+      {
+        model: OPENAI_ANALYSIS_MODEL,
+        max_completion_tokens: MAX_ANALYSIS_OUTPUT_TOKENS,
+        response_format: { type: 'json_object' },
+        messages: [{ role: 'user', content: prompt }],
+        stream: true,
+        stream_options: { include_usage: true },
+      },
+      { signal, timeout: PROVIDER_ATTEMPT_TIMEOUT_MS, maxRetries: 0 },
+    );
 
     let text = '';
     let inputTokens: number | undefined;

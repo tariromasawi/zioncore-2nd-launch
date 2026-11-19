@@ -63,7 +63,6 @@
 1b3c18660d60e764e681441d0dafbff8df6874999996dedc16f93ce5498697d0  artifacts/zioncore-frequency-lab/src/lib/ai-provider-inventory.test.ts
 1ca91528a99eba68c2775b7f77dd4ced4552870d05ecaa6f79683475731cf13e  artifacts/zioncore-frequency-lab/src/lib/audio-capture-capabilities.ts
 1cdd1e62797356fe62f61f5521fcf0da8e3570b1120868ccca2b48370157fe46  artifacts/zioncore-frequency-lab/src/components/ui/calendar.tsx
-1d140808ca575320853fcf03d178f3883a203fee51327093b1cc8f5cc1a96f71  artifacts/api-server/src/lib/ai-provider-clients.ts
 1d35e773cd536dcb75a4239761e78fcf022a80bb37b4f86595f6bdf80df53b46  artifacts/zioncore-frequency-lab/src/components/experiment-design-panel.css
 1dae733025d3fee52c0f80f73aa27f6bcde47a6fada20f2b37f534af2841b841  artifacts/api-server/src/middlewares/firebase-identity.test.ts
 1de984ca0dae12a9dacf35de80cac6fa2b381a07e85fafb9af9416276d1078cd  artifacts/zioncore-frequency-lab/src/components/space-weather-context.tsx
@@ -126,7 +125,6 @@
 334be5a245c75ec50d5825ae4f1f8c955ba1e1ad0fde5562873433acce2aa2c1  lib/integrations-openai-ai-server/src/index.ts
 335e736cdf4b9892c4efbf8c6d6783e24a17ee07e8e0eb6c02015473c6a92044  artifacts/zioncore-frequency-lab/src/lib/device-adapters.ts
 3403b6e9eff18581259a6cf4affb77624cfb2df73fbdef4a5c14b85ed1cbce74  artifacts/api-server/src/lib/task-pricing.test.ts
-3577344b368d9b51759f9dfc7006769f76510a9f6daffb1de20c84fc5ba64777  docs/production-operations.md
 357d56c545b69b18a067c2ccb82fd837f03ec333fa72d5cc351c93059b9497b5  artifacts/zioncore-frequency-lab/src/lib/audio-capture-capabilities.test.ts
 35fbf1391b00131bc4bfe53a6476a45e28c4c43a073de711f05f1fa781ddf40f  artifacts/zioncore-frequency-lab/src/lib/membership-model.ts
 3711abab8642e029f5687a127da9b2947594dfc5b93f31c07b719f356a829584  artifacts/api-server/src/lib/ai-audio-input.ts
@@ -165,7 +163,6 @@
 428d03ff23cd78e37d284c93d3680498c8ff6fd7696b76cc2e4ac58e2a2df6d2  artifacts/api-server/src/lib/stripe-membership.test.ts
 429f5e82fc3dcf265625650176f16ff9b35e55826183e1f1b2d4dc2a338f9b15  artifacts/zioncore-frequency-lab/src/components/ui/avatar.tsx
 430648c3205a20546713ee8b71621e0e5332034864382903c3eebf2627c862b4  artifacts/zioncore-frequency-lab/src/components/owner-dashboard.css
-4331b3122181d4707be898a6068a3f01e70515044b2e185f69ed245c3dc17b87  artifacts/api-server/src/lib/ai-provider-clients.test.ts
 4348a7a06a715e9e9673602cbb9ed89a6a4c6cbdd457d4c03db0f23a139d19eb  artifacts/zioncore-frequency-lab/src/components/ui/kbd.tsx
 4455c6595e2333472c4b9dcda49445a50a51bc27689807a95ce90319d43f7959  artifacts/zioncore-frequency-lab/src/lib/audio-analysis-task.test.ts
 4457e6cfdc38eda9844d809858179bb8b8219e13cc3ab7e6f958d6bc9e905f2a  artifacts/zioncore-frequency-lab/src/components/device-connection-center.tsx
@@ -197,7 +194,6 @@
 5203c6d0e417bc2a103550b23a16941b200bd6324226c887a820f17852cc2d14  artifacts/zioncore-frequency-lab/src/lib/request-json.test.ts
 525696f9f18c05f3ab44ed7d28394ab1f6e070bbd12539ca24a2358df8ed390e  artifacts/api-server/src/lib/firebase-admin.ts
 5257d6112bb11029ed12ae13fbe4fa97c18b2da6cd94163e86a81c1d2d1772f1  artifacts/zioncore-frequency-lab/src/lib/dashboard-states.test.ts
-52da795463ab38a4d2cccd3840c02ecb0443ddf6e0c5ef7b6205ec114252daef  docs/ZIONCORE-2ND-RELEASE-READINESS.md
 52fe15bcff610ba2c3d3c842bd203d93cd7c9c6180465c05e603feb698abee9a  artifacts/zioncore-frequency-lab/src/lib/signal-analysis.test.ts
 53cfdffd9829c4da355cc7ed443a17a95286763f40130601542ff7193a0a82b4  artifacts/zioncore-frequency-lab/src/components/engine-monitor.tsx
 54bffd4ec19a1a74295a30144037a8eebc28c0cf9a92dc681fa753990445c33b  artifacts/api-server/src/lib/ai-interpretation-quality.ts
@@ -207,6 +203,7 @@
 58c280f7fd4e5ab6a8663ffcb2312a749a619bb5f75d7b2a6a34493386d45be3  artifacts/zioncore-frequency-lab/public/pwa-icon-192.png
 590912ad0a9019ea231b696177194d6b22f77de5fe66a9933d4f202cf197e79d  artifacts/zioncore-frequency-lab/src/components/signal-path.tsx
 5928a1bcb7f375d736350e5b5eaa7ad9996d5ce132bcea9043c6d3d666c875fc  artifacts/zioncore-frequency-lab/src/components/interpretation-comparison-panel.tsx
+598945971463fb18bdd23b7ee9d8508576aaac2f0690455264a219a718161ebc  docs/production-operations.md
 5a5975d5db198e7d0a195a82f96354fc7ff240034a3a574bd965cabf829da224  artifacts/zioncore-frequency-lab/public/audio-spectrum-analyzer/index.html
 5ae09dc7d4fa8cda2e601ccf0df81efc81ab8df722eac0abe47f12183ac240ca  artifacts/api-server/src/routes/ai-audio-interpretation.ts
 5c68dd7c2c3aaaba83f2a0f20851952d2411ed85500243e24b6ee26f3deb9727  scripts/src/verify-release.ts
@@ -270,7 +267,6 @@
 6f744470f6aa8a92273e4de5fe2e581026f3f41559b137f14f65dd4a31e9501d  lib/api-zod/src/generated/types/adminWebhookSummaryStatus.ts
 700427cb2cce1c7614ba0000336835ba26e5cfdbdb6479bcfde0ea2424db6347  artifacts/api-server/src/test-utils/firestore-emulator.ts
 715d21153c7f85d141ca6b73e9eb85f861e2e72c475d4eb1f7c4252ca6b85409  artifacts/zioncore-frequency-lab/src/lib/local-processing-routing.test.ts
-71652b4988e875e0d56115d10a5627958b4ddab757f50024ee290ae885a5bc05  artifacts/api-server/.env.example
 71e8a496f1a7ca8440257d829bba9c857e6c8e605e5248a3a0daf7e8285d4806  artifacts/zioncore-frequency-lab/src/lib/startup-bundle.test.ts
 7215719baa38300bfa0d1743c5c8c62744690dd53762891d1a96b7ce060c807f  artifacts/zioncore-frequency-lab/src/lib/cloud-observations.test.ts
 72354619f6f7d8b44afe6f1e8cb925c9fc7afa3f1559d67a26ba2460c5a334d4  lib/api-zod/src/generated/types/ownerFirebaseDiagnosticIndex.ts
@@ -348,9 +344,9 @@
 9121728ccab45ebd9f0918573de6770fd39647951358fdd139340b93e51ec17c  artifacts/zioncore-frequency-lab/src/components/bioacoustic-playback-planner.css
 9167792e64ae8487c525f4547b48383a5a13105609bfd1112689a8dc7e06ded7  lib/api-zod/src/generated/types/adminWebhookSummarySignatureVerification.ts
 91842d6ee245d4f7ca547fb6797fb4a45575ba39c98d2d0cd2e8acdf9f246416  artifacts/api-server/src/routes/owner.ts
+91dc7bbea73904187769f2b692fcf83f1e7d433ee08f41b70a1af8eb52bc0294  .github/workflows/deploy-zioncore-2nd.yml
 920b1480b0c7d3c7562b2c9419df0e85c964e1d12ed327d6d0d35d06203fc487  artifacts/zioncore-frequency-lab/src/lib/location-privacy.ts
 92cbebef471b2bbdb99091bff6b33224c3b81a34ee73e5353d10321c0f894d1d  artifacts/zioncore-frequency-lab/src/lib/ai-analysis.test.ts
-945c4960f0cb35741444696ba55688d2b708168ffd58cc972791fd9b505556e9  artifacts/zioncore-frequency-lab/FIREBASE_SETUP_ZIONCORE_2ND.md
 946071e7889584d63e56ae73706eea6e137ebf6b11729d9f980c02b53de38b4c  artifacts/zioncore-frequency-lab/MEMBERSHIP_SETUP.md
 94c33ad00a029bb7592fce9cb16b97b9a4db559b1827b1fc6f033ce4365fbc87  artifacts/zioncore-frequency-lab/src/lib/observation-storage.test.ts
 9507e88fbcc31d26b4906d3c85fe71ca61b47af44a8ee69146c09c9950d23307  artifacts/api-server/src/lib/emulator-test-safety.test.ts
@@ -399,6 +395,7 @@ a3a9e6cf5c22db7da569ae4f9a6f857008371cfb07e7c748651c9803b4c28b05  research/zionc
 a3ab9b54653cb6f5c06dc287a577b8854499bebe0b8d3e0bce9b02958fee4c2d  artifacts/zioncore-frequency-lab/src/components/engine-monitor.css
 a4b0fb7ab391736bfb0517939d9e21a23bbc15283b87b5f2a48ec1ef8fc78610  artifacts/api-server/src/lib/provider-execution.ts
 a51ae91dd61609de48542fcdaa0888805fc78eda4d96f4a8d261f3db9202d633  artifacts/api-server/src/lib/cors-policy.ts
+a540598815376f72f1f9f7901d3e2c0a3cfbac016cf35f212883d5b97f2b5d53  artifacts/api-server/src/lib/ai-provider-clients.ts
 a54701bfd043277c2e69238eafb2a57bc25b8ba1497da3b4e940321b9cf4f9f4  artifacts/zioncore-frequency-lab/src/lib/astronomical-data.ts
 a58c5702c9d6c3285711020231d105e104744eb8068b19e3e0773fb9995e1530  artifacts/api-server/src/lib/ai-output-normalizer.ts
 a606a3249706d054a8ab7dac492be5dfbf4d4d5407271812185e4bfef30d41c4  artifacts/zioncore-frequency-lab/src/components/connectivity-notice.tsx
@@ -476,6 +473,7 @@ c2cba08d359bdb3728546e130fc962647403108bea8c6b6f0b94ebc76d9a226d  artifacts/zion
 c3787ffb045354e9f18e70d94890627caea94939a226e49c1e6cedee84a1e9e1  artifacts/zioncore-frequency-lab/src/components/ui/field.tsx
 c3e7eb148e67c992e2e9a9a6dbcf596b576be2693a71e23c8c2c6eab74b4c8f7  artifacts/zioncore-frequency-lab/src/lib/stable-identity.test.ts
 c5a27cafe46d4b883a802398e88cf1009eaac70e80ad15907c0f36ac2d112028  artifacts/zioncore-frequency-lab/src/components/reference-tone-controls.tsx
+c5b5d8153238c490d469eb756472becc0e486c7b35e51b572f5650d2a5e2b479  artifacts/api-server/src/lib/ai-provider-clients.test.ts
 c60221f21f234fe10763bd033557f064effec2f4e508d14585c8a1b6cce19522  artifacts/zioncore-frequency-lab/src/pages/research-missions.css
 c618af210eae1eff60d0a313604c808c10a697df0e81e785ed7593649baf323b  artifacts/zioncore-frequency-lab/src/lib/chunk-load-error.ts
 c64c9c1574c91f1eff922f3557e7609ba6c1d5e39959dbdecf8d386d7ae41990  artifacts/zioncore-frequency-lab/src/components/ui/select.tsx
@@ -570,6 +568,7 @@ e89f6e67e28d9b23489f18a2695ef98beba705fd96e274f4f7013334445ce3f9  scripts/src/me
 e8fa9ac3654f5268771033110ea4ed6f7116bdee993fbe150b8c3dd9010dfc2b  lib/api-zod/src/generated/types/createCheckoutSessionRequest.ts
 ea72df5c84802a31015196cdfed47596c74f56e7e8923a67ac9053b0b8ca3248  artifacts/zioncore-frequency-lab/src/lib/owner-dashboard-metrics.ts
 ea9317e23443293904ca82f921ae640c9144b5a619ae34dec38a41d885ef2d1b  artifacts/zioncore-frequency-lab/src/pages/devotional-workspace.tsx
+eb0f4f58fb79a86dfc5aaee7c53de552c9d34dae079be6d870ab38709d99016c  artifacts/zioncore-frequency-lab/FIREBASE_SETUP_ZIONCORE_2ND.md
 eb5d5681144e58b493ff3475542afd874d4b446c58bd117135f767775bab1407  artifacts/api-server/src/lib/billing-origin.ts
 ebed6b3072a5ae7214f5e642550d35f029b40dbf61a52750cdf6bb55b55de151  lib/api-zod/src/generated/types/adminFirebaseSummaryIdentityVerification.ts
 ebf86f27f40b803fdcf9b6ffa1385eb38b371fcbc8d8d4e0bf20f15d755ca29e  artifacts/zioncore-frequency-lab/src/lib/signal-card-export.ts
@@ -586,6 +585,7 @@ f18102dfabd162cef26fe965a488557b01cb344c47500ab722ae1e9287967996  artifacts/zion
 f1d2e26e2b7b48246efb45ca68bf86a3ef545be713667f1995ed64e2fd5bb795  artifacts/api-server/src/routes/resonance-visuals.ts
 f27bb0c14b4b2c1a93439dd3e27de54ae4cfc34dfc1bb8e7ce0127a5a25a5872  artifacts/zioncore-frequency-lab/src/lib/bioacoustic-scope.ts
 f2ec3a3f201a5738cc0288c866a5f587401d779019f8ef469718fcd89eb695e9  artifacts/zioncore-frequency-lab/src/lib/celestial-wav.test.ts
+f37721e6c40ea959a4897af98d1b61c5033f2edb4b2199ac8d6ed4d2474365b1  docs/ZIONCORE-2ND-RELEASE-READINESS.md
 f4681621a78b999bb4b23ffa2e7550889bf341674cf5f56ebf28238ccf7569eb  artifacts/zioncore-frequency-lab/src/lib/billable-confirmation.test.ts
 f4befbf9bf8ebd755b267c4db2b396be296adb95acca5c3fba54f6495bdedebd  artifacts/zioncore-frequency-lab/src/components/ui/input-group.tsx
 f54cb9045726176c471fe12850c59ccb76169aa27f6838d4c5972e2e54a951d2  artifacts/zioncore-frequency-lab/src/lib/frontier-discovery.ts
@@ -593,7 +593,6 @@ f68c5a9459d253d9bd18dff51d9aeccac322d372db6ff5fd8796dc5e10b88fb4  artifacts/zion
 f6cd9fa062bdf1c161291fe18b24e98b897f01044061b2bb58aa75938d4dae2b  lib/api-zod/src/generated/types/domainPerspectiveDomain.ts
 f71b28ff11f77c1556a7d1d7f21662947393246c22afeace17729340996998ee  docs/ZIONCORE-2ND-EXECUTION-MATRIX.md
 f7aface2c3b8149e1b3d6476b48e36fa6ff97209f9d35443eaa58ed3c2485c30  lib/integrations-gemini-ai/package.json
-f7d6e61338331017614a128cc32ece166d09b204624fa78b38f28bb96a18245c  .github/workflows/deploy-zioncore-2nd.yml
 f81bc9b5ce2d6a92b6b2f1f3376c0489f30f7073081a1d9d6c56553880f44c58  artifacts/zioncore-frequency-lab/src/components/ui/switch.tsx
 f87c324da247443bcf6ac4c6b799241e871abc3dec8aaa69c921cd123943f95e  governance/genesis/GENESIS_SEED.original.txt
 f887f8a83772eaee9a3b982121429ad63ad6a6ca23e86b83207d3c37767e7b1a  artifacts/zioncore-frequency-lab/src/lib/protocol-registry.test.ts
@@ -605,6 +604,7 @@ f98b338fd23e4b4c9dd73ef857a3465e8e9673bd7da22828d6b1e34e2b1707cc  lib/api-zod/sr
 fa5c4d3dec7dd5cad6dce0c401b383507ece0e6f8ce85f88c34a1f0356d2e425  patches/teeny-request@11.1.1.patch
 fa8cc42d839f8a187af6e454807766e97320b734ae8a125290a37c409f00a41b  artifacts/api-server/package.json
 fbc0c7db4221227941271a004bf71db5067aee9d8668f3351d91113cd5934c8c  artifacts/zioncore-frequency-lab/src/components/ui/label.tsx
+fbe05b5a038992788225f7e65eb0ca93a1d252e5ecf202e3c60d4b2d7f848652  artifacts/api-server/.env.example
 fc187202912b9cdbe961eb9f9a084c4932d292ea6261a8ab306d5d5c196b6919  artifacts/zioncore-frequency-lab/public/favicon.svg
 fc285bc83108137ba57c4c2774a35053e3c25fda1292c3d7a16a57d43dd9679c  lib/db/src/index.ts
 fc64f9fb63a72340fc315ec3d0eb192f0c5a13bea05336106df9c02380dc371d  artifacts/zioncore-frequency-lab/package.json

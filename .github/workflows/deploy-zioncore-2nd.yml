@@ -49,7 +49,9 @@ jobs:
       VITE_ZIONCORE_2ND_FIREBASE_APPLE_AUTH_CONFIGURED: "false"
       VITE_ZIONCORE_2ND_FIRESTORE_CLIENT_ACCESS_APPROVED: "false"
       VITE_ZIONCORE_2ND_FIREBASE_AI_PROJECT_SECURITY_CONFIRMED: "false"
-      ZIONCORE_2ND_GEMINI_SECRET_NAME: ${{ vars.ZIONCORE_2ND_GEMINI_SECRET_NAME }}
+      ZIONCORE_2ND_GEMINI_AUTH_MODE: vertex-adc
+      GOOGLE_CLOUD_PROJECT: zioncore-2nd-production
+      GOOGLE_CLOUD_LOCATION: eu
       ZIONCORE_2ND_OPENAI_SECRET_NAME: ${{ vars.ZIONCORE_2ND_OPENAI_SECRET_NAME }}
       ZIONCORE_2ND_RUNTIME_SERVICE_ACCOUNT: ${{ vars.ZIONCORE_2ND_RUNTIME_SERVICE_ACCOUNT }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -85,7 +87,9 @@ jobs:
             GCP_WORKLOAD_IDENTITY_PROVIDER \
             GCP_DEPLOYER_SERVICE_ACCOUNT \
             ZIONCORE_2ND_RUNTIME_SERVICE_ACCOUNT \
-            ZIONCORE_2ND_GEMINI_SECRET_NAME \
+            ZIONCORE_2ND_GEMINI_AUTH_MODE \
+            GOOGLE_CLOUD_PROJECT \
+            GOOGLE_CLOUD_LOCATION \
             VITE_ZIONCORE_2ND_FIREBASE_API_KEY \
             VITE_ZIONCORE_2ND_FIREBASE_APPCHECK_SITE_KEY; do
             if [[ -z "${!key:-}" ]]; then
@@ -113,11 +117,11 @@ jobs:
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Confirm required Secret Manager entries exist
+      - name: Confirm optional OpenAI fallback secret exists when configured
         shell: bash
         run: |
           set -euo pipefail
-          require_enabled_secret_version() {
+          require_enabled_openai_secret_version() {
             local secret_name="$1"
             local enabled_version
             gcloud secrets describe "$secret_name" \
@@ -133,34 +137,35 @@ jobs:
             fi
           }
 
-          require_enabled_secret_version "$ZIONCORE_2ND_GEMINI_SECRET_NAME"
           if [[ -n "$ZIONCORE_2ND_OPENAI_SECRET_NAME" ]]; then
-            require_enabled_secret_version "$ZIONCORE_2ND_OPENAI_SECRET_NAME"
+            require_enabled_openai_secret_version "$ZIONCORE_2ND_OPENAI_SECRET_NAME"
           fi
-          echo "Required AI secret versions are enabled; secret values were not read."
+          echo "Gemini uses Vertex AI ADC; no Gemini key secret is required."
+          echo "Optional OpenAI secret values are not read."
 
       - name: Deploy the API to Cloud Run
         shell: bash
         run: |
           set -euo pipefail
-          secret_map="GOOGLE_GENAI_API_KEY=${ZIONCORE_2ND_GEMINI_SECRET_NAME}:latest"
-          if [[ -n "$ZIONCORE_2ND_OPENAI_SECRET_NAME" ]]; then
-            secret_map="${secret_map},OPENAI_API_KEY=${ZIONCORE_2ND_OPENAI_SECRET_NAME}:latest"
-          fi
           cors_origins="https://zioncore-2nd-production.web.app,https://zioncore-2nd-production.firebaseapp.com"
-          gcloud run deploy "$API_SERVICE" \
-            --source . \
-            --project "$GCP_PROJECT_ID" \
-            --region "$GCP_REGION" \
-            --service-account "$ZIONCORE_2ND_RUNTIME_SERVICE_ACCOUNT" \
-            --allow-unauthenticated \
-            --min 0 \
-            --max 5 \
-            --cpu 1 \
-            --memory 1Gi \
-            --timeout 300 \
-            --set-env-vars="^|^NODE_ENV=production|ZIONCORE_2ND_ADMIN_AUTH_MODE=adc|ZIONCORE_2ND_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}|CORS_ALLOWED_ORIGINS=${cors_origins}|ZIONCORE_CHECKOUT_MODE=disabled|ZIONCORE_LIVE_CHECKOUT_APPROVED=false|ZIONCORE_AUTOMATIC_TAX_ENABLED=false|ZIONCORE_PAID_USAGE_ENABLED=false|ZIONCORE_PREMIUM_FEATURES_ENABLED=false|ZIONCORE_STRIPE_MIRROR_ENABLED=false" \
-            --set-secrets="$secret_map"
+          deploy_args=(
+            gcloud run deploy "$API_SERVICE"
+            --source .
+            --project "$GCP_PROJECT_ID"
+            --region "$GCP_REGION"
+            --service-account "$ZIONCORE_2ND_RUNTIME_SERVICE_ACCOUNT"
+            --allow-unauthenticated
+            --min 0
+            --max 5
+            --cpu 1
+            --memory 1Gi
+            --timeout 300
+            --set-env-vars="^|^NODE_ENV=production|ZIONCORE_2ND_ADMIN_AUTH_MODE=adc|ZIONCORE_2ND_GEMINI_AUTH_MODE=${ZIONCORE_2ND_GEMINI_AUTH_MODE}|GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}|GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}|ZIONCORE_2ND_PUBLIC_ORIGIN=${PUBLIC_ORIGIN}|CORS_ALLOWED_ORIGINS=${cors_origins}|ZIONCORE_CHECKOUT_MODE=disabled|ZIONCORE_LIVE_CHECKOUT_APPROVED=false|ZIONCORE_AUTOMATIC_TAX_ENABLED=false|ZIONCORE_PAID_USAGE_ENABLED=false|ZIONCORE_PREMIUM_FEATURES_ENABLED=false|ZIONCORE_STRIPE_MIRROR_ENABLED=false"
+          )
+          if [[ -n "$ZIONCORE_2ND_OPENAI_SECRET_NAME" ]]; then
+            deploy_args+=(--set-secrets="OPENAI_API_KEY=${ZIONCORE_2ND_OPENAI_SECRET_NAME}:latest")
+          fi
+          "${deploy_args[@]}"
 
       - name: Verify the direct API health endpoint
         shell: bash
