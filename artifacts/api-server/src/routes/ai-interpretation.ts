@@ -88,6 +88,7 @@ export type AiInterpretationRouterOptions = {
   providerFactory?: (input: {
     uid: string;
     prompt: string;
+    requestId: string;
     request: {
       measurement: AnalysisMeasurement;
       includeFaithReflection: boolean;
@@ -105,9 +106,15 @@ export function createAiInterpretationRouter(
   const identityMiddleware = options.identityMiddleware ?? requireFirebaseIdentity;
   const ledgerProvider = options.ledgerProvider ?? getCreditLedger;
   const jobStoreProvider = options.jobStoreProvider ?? interpretationJobStore;
-  const providerFactory = options.providerFactory ?? (({ prompt }) => ({
-    gemini: () => generateWithGemini(prompt),
-    openai: () => generateWithOpenAI(prompt),
+  const providerFactory = options.providerFactory ?? (({ prompt, requestId }) => ({
+    gemini: () => generateWithGemini(prompt, undefined, {
+      requestId,
+      operation: 'text-interpretation',
+    }),
+    openai: () => generateWithOpenAI(prompt, undefined, {
+      requestId,
+      operation: 'text-interpretation',
+    }),
   }));
 
 router.get('/ai/interpretation/pricing', (_req, res) => {
@@ -465,6 +472,7 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
     const routed = await runWithGeminiOpenAIFallback(providerFactory({
       uid,
       prompt,
+      requestId: String(req.id),
       request,
     }), text => parseProviderJson(
       text,

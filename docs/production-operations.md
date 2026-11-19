@@ -53,25 +53,38 @@ documents CountTokens as non-billable. This verifies authentication,
 model/location availability, and text/audio request formats; it does not test
 paid generation or streaming.
 
-One owner-authorized verification batch containing a 32-token-capped text
-stream and a 32-token-capped interpretation of a synthetic 0.25-second WAV
-timed out after five minutes before returning per-request results. The client
-cannot determine whether either request was accepted or provide actual token
-usage/cost. Non-billable CountTokens confirmed input sizes of 11 text tokens and
-26 tokens for the prompt plus synthetic WAV. With the 32-token output cap on
-each request and conservative $2/$10 per-million-token rates, the combined
-maximum estimate is $0.000714; the actual charge is unknown. A Cloud Logging
-query returned no matching entries, and the batch was not retried to avoid
-duplicate charges. The Billing Budgets API is disabled, so no project budget was
-verified; the Vertex quota response exposed no model-specific numeric effective
-limit for this check. Do not treat model generation or streaming as verified or
-proceed to deployment on this evidence.
+An owner-authorized verification batch contained one 32-token-capped text stream
+and one 32-token-capped interpretation of a synthetic 0.25-second WAV. The outer
+test process timed out after five minutes before it emitted either result. The
+test harness had no per-request abort deadline and printed results only after
+the complete batch, so the observed failure is a loss of per-request diagnostics;
+it does not establish whether the provider accepted either request or what caused
+the delay. Non-billable CountTokens confirmed input sizes of 11 text tokens and
+26 tokens for the prompt plus synthetic WAV. With the output cap on each request
+and conservative $2/$10 per-million-token rates, the combined maximum estimate
+is $0.000714 USD; actual usage and cost remain unknown. No matching Cloud Logging
+entries or Vertex EU online-prediction metric series appeared in the inspected
+24-hour window. Missing telemetry is not evidence that no request was accepted.
+No retry has been made.
+
+The Cloud Billing Budgets API is enabled. The project had no existing
+project-scoped budget, so an alert-only £1/month budget was created for project
+225578874852 with 25%, 50%, 90%, 100% current-spend and 100% forecast thresholds.
+It has no spend cap: alerts do not stop or limit spending. Billing account
+configuration was not changed. The Vertex quota response exposed no
+model-specific numeric effective limit for this check.
+
+The API now assigns a server-generated request ID and returns it in
+`X-Request-Id`. AI provider attempts log that correlation ID, a unique attempt
+ID, provider/model/operation, timestamps, duration, token usage when returned,
+and sanitized error name/code/status. Prompt text, audio, credential values,
+and raw provider error messages are excluded. This instrumentation does not
+retroactively reveal the outcome of the timed-out test batch.
 
 The optional OpenAI Secret Manager resource has no enabled version. No Gemini
-or OpenAI key was copied from the Replit workspace. The Cloud Billing API was
-enabled only to inspect billing status; the project already reports an attached
-billing account (`billingEnabled=true`). No billing attachment or payment
-setting was changed.
+or OpenAI key was copied from the Replit workspace. The project reports an
+attached billing account (`billingEnabled=true`); neither its billing
+attachment nor payment settings were changed.
 
 The Firebase Hosting site exists at
 `https://zioncore-2nd-production.web.app`, but it still returns HTTP 404 and

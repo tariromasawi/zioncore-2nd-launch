@@ -128,6 +128,7 @@ function sleep(milliseconds: number) {
 
 async function reviewAudioSegments(
   segments: ReturnType<typeof inspectAndChunkPcmWav>['segments'],
+  requestId: string,
 ): Promise<{ insights: AudioSegmentInsight[]; usage: ProviderUsage[]; model: string; providerAttempts: number }> {
   const insights: AudioSegmentInsight[] = new Array(segments.length);
   const usage: ProviderUsage[] = new Array(segments.length);
@@ -154,7 +155,10 @@ async function reviewAudioSegments(
           'Do not guess personal identity or repeat sensitive speech. If speech is unclear, say so. Keep observations concise and evidence-linked.',
           'Return strict JSON only with exactly these keys: observations (one short description, 1–3 sentences), speechOrEventDetail (a brief non-identifying speech or event detail, or null).',
           `Segment ${segment.index + 1} of ${segments.length}; duration ${segment.durationSeconds.toFixed(2)} seconds.`,
-        ].join('\n'), normalizeBase64Segment(segment.wav), 12_000);
+        ].join('\n'), normalizeBase64Segment(segment.wav), 12_000, {
+          requestId,
+          operation: `audio-segment-${segment.index + 1}`,
+        });
         const normalized = providerOutput.text.trim()
           .replace(/^```(?:json)?\s*/i, '')
           .replace(/\s*```$/i, '');
@@ -490,7 +494,8 @@ router.post(
       }
       reservationHeld = true;
 
-      const audioReviewResult = await reviewAudioSegments(inspected.segments);
+      const requestId = String(req.id);
+      const audioReviewResult = await reviewAudioSegments(inspected.segments, requestId);
       const audioReview = {
         provider: 'gemini' as const,
         model: audioReviewResult.model,
@@ -510,8 +515,14 @@ router.post(
         `Segment observations:\n${audioReview.summary}`,
       ].join('\n\n');
       const routed = await runWithGeminiOpenAIFallback({
-        gemini: () => generateWithGemini(prompt, 30_000),
-        openai: () => generateWithOpenAI(prompt, 30_000),
+        gemini: () => generateWithGemini(prompt, 30_000, {
+          requestId,
+          operation: 'audio-interpretation-summary',
+        }),
+        openai: () => generateWithOpenAI(prompt, 30_000, {
+          requestId,
+          operation: 'audio-interpretation-summary',
+        }),
       }, text => parseProviderJson(
         text,
         interpretation.data.measurement,

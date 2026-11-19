@@ -87,8 +87,11 @@
   empty and the runtime has no access to it. OpenAI remains optional and needs
   an enabled secret version only if that fallback is configured.
 - Cloud Run, Cloud Build, and Firebase Hosting APIs are enabled. The Cloud
-  Billing API was enabled for inspection, and the project already reports an
-  attached billing account. No billing attachment was changed. Google and Apple
+   Billing and Billing Budgets APIs are enabled for inspection; the project
+   reports an attached billing account. A project-scoped £1 monthly alert-only
+   budget was created with 25%, 50%, 90%, 100% current and 100% forecast
+   thresholds. No hard spending cap, billing attachment, or payment setting was
+   changed. Google and Apple
   sign-in remain disabled; browser Firestore access and paid features remain
   fail-closed.
 - Vertex AI (`aiplatform.googleapis.com`) is enabled and the dedicated runtime
@@ -99,16 +102,24 @@
   text/audio request formats; Cloud Run's metadata-based ADC and billable
   generation/streaming remain unverified.
 - The owner-authorized, 32-output-token-capped text-stream and synthetic
-  0.25-second audio-generation checks timed out as one batch after five minutes
-  without per-request results. Cloud Logging returned no matching entries, so
-  request acceptance, response validity, usage, and actual cost are unknown.
-  No retry was made. Non-billable CountTokens measured 11 text input tokens and
-  26 prompt-plus-audio tokens; with a 32-token output cap per request and
-  conservative $2/$10 rates, the combined maximum estimate is $0.000714, but
-  the actual charge is unknown. The Billing Budgets API is disabled, and the
-  quota query returned no model-specific numeric effective limit. These are
-  unresolved release checks; do not claim AI generation or streaming is
-  verified.
+   0.25-second audio-generation checks timed out as one batch after five minutes
+   without per-request results. The harness lacked per-call deadlines and only
+   emitted results after the batch, explaining the missing diagnostics but not
+   whether the provider accepted either request. Cloud Logging had no matching
+   entries and Vertex EU online-prediction metrics had no series in the checked
+   24-hour window; neither absence proves that no request was accepted. No retry
+   was made. Non-billable CountTokens measured 11 text input tokens and 26
+   prompt-plus-audio tokens; the combined capped estimate is at most $0.000714
+   USD at conservative $2/$10 per-million-token rates, but actual usage and cost
+   are unknown. The quota query returned no model-specific numeric effective
+   limit. These remain release checks; do not claim AI generation or streaming
+   is verified.
+- Provider diagnostics now emit server-generated request and attempt IDs,
+  timestamps, provider/model/operation, duration, returned token counts, timeout
+  status, and sanitized error fields. They exclude prompts, audio, credentials,
+  and raw provider error messages. API tests verify the response correlation
+  header and that telemetry omits prompt/error content. No generation retry was
+  performed.
 - The deployment container was not built locally and the workflow was not run;
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.

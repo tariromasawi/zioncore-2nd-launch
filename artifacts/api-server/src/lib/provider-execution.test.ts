@@ -5,6 +5,7 @@ import {
   PROVIDER_ATTEMPT_TIMEOUT_MS, ProviderResponseLimitError,
   ProviderTimeoutError, withProviderDeadline,
 } from './provider-execution';
+import type { ProviderAttemptEvent } from './provider-execution';
 import { runWithGeminiOpenAIFallback, shouldFailOver } from './ai-provider-router';
 import { AI_INTERPRETATION_LEASE_MS } from './ai-interpretation-jobs';
 
@@ -21,13 +22,65 @@ test('completed attempts return their output and clear their deadline', async ()
   assert.equal(signal?.aborted, false);
 });
 
+test('provider telemetry records correlation, timing and token usage without content', async () => {
+  const events: ProviderAttemptEvent[] = [];
+  const output = {
+    text: 'private prompt and response must not enter telemetry',
+    usage: { inputTokens: 11, outputTokens: 4 },
+  };
+  assert.equal(await withProviderDeadline(async () => output, 50, {
+    requestId: 'request-test-1',
+    provider: 'gemini',
+    model: 'test-model',
+    operation: 'text-interpretation',
+    usageOf: value => (value as typeof output).usage,
+    onEvent: event => events.push(event),
+  }), output);
+
+  assert.deepEqual(events.map(event => event.event), ['started', 'succeeded']);
+  assert.ok(events.every(event => event.requestId === 'request-test-1'));
+  assert.ok(events.every(event => Boolean(event.attemptId && event.startedAt && event.timestamp)));
+  assert.equal(events[1]?.usage?.inputTokens, 11);
+  assert.equal(events[1]?.usage?.outputTokens, 4);
+  assert.equal(events[1]?.durationMs !== undefined, true);
+  assert.doesNotMatch(JSON.stringify(events), /private prompt|response must not enter telemetry/);
+});
+
+test('provider error telemetry excludes error messages while retaining safe diagnostics', async () => {
+  const events: ProviderAttemptEvent[] = [];
+  const failure = Object.assign(new Error('secret prompt content'), {
+    status: 503,
+    code: 'UPSTREAM_UNAVAILABLE',
+  });
+  await assert.rejects(withProviderDeadline(async () => {
+    throw failure;
+  }, 50, {
+    requestId: 'request-test-2',
+    provider: 'gemini',
+    model: 'test-model',
+    operation: 'text-interpretation',
+    onEvent: event => events.push(event),
+  }), error => error === failure);
+
+  const failed = events.find(event => event.event === 'failed');
+  assert.equal(failed?.errorStatus, 503);
+  assert.equal(failed?.errorCode, 'UPSTREAM_UNAVAILABLE');
+  assert.equal(failed?.errorName, 'Error');
+  assert.doesNotMatch(JSON.stringify(events), /secret prompt content/);
+});
+
 test('stalled provider setup times out and aborts its transport', async () => {
   let signal: AbortSignal | undefined;
+  const events: ProviderAttemptEvent[] = [];
   await assert.rejects(withProviderDeadline(current => {
     signal = current; return new Promise(() => {});
-  }, 10), ProviderTimeoutError);
+  }, 10, {
+    requestId: 'request-test-timeout',
+    onEvent: event => events.push(event),
+  }), ProviderTimeoutError);
   assert.equal(signal?.aborted, true);
   assert.equal(shouldFailOver(signal?.reason), true);
+  assert.equal(events.find(event => event.event === 'failed')?.timedOut, true);
 });
 
 test('a stalled stream also reaches the attempt deadline', async () => {

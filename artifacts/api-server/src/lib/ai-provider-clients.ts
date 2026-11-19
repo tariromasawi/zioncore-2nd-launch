@@ -5,6 +5,7 @@ import {
   appendProviderText,
   withProviderDeadline,
   PROVIDER_ATTEMPT_TIMEOUT_MS,
+  type ProviderAttemptTelemetry,
 } from './provider-execution';
 
 export const GEMINI_ANALYSIS_MODEL = 'gemini-3.8-flash';
@@ -13,6 +14,10 @@ export const ZIONCORE_2ND_VERTEX_PROJECT_ID = 'zioncore-2nd-production';
 export const ZIONCORE_2ND_VERTEX_LOCATION = 'eu';
 export const OPENAI_ANALYSIS_MODEL = 'gpt-5.4-mini';
 export const GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS = 256;
+export type AIProviderRequestContext = Pick<
+  ProviderAttemptTelemetry,
+  'requestId' | 'operation'
+>;
 
 export type GeminiCredentialSource =
   'vertex-adc' | 'google-api-key' | 'replit-integration' | 'unconfigured';
@@ -208,10 +213,11 @@ export function estimateGeminiAudioUsageMicroUsd(
 export async function generateWithGemini(
   prompt: string,
   timeoutMs = PROVIDER_ATTEMPT_TIMEOUT_MS,
+  context: AIProviderRequestContext = {},
 ): Promise<ProviderOutput> {
+  const model = getGeminiAnalysisModel();
   return withProviderDeadline(async (signal) => {
     const ai = await getGeminiClient();
-    const model = getGeminiAnalysisModel();
     const stream = await ai.models.generateContentStream({
       model,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -235,14 +241,25 @@ export async function generateWithGemini(
       model,
       usage: usage ?? normalizeGeminiUsage(),
     };
-  }, timeoutMs);
+  }, timeoutMs, {
+    ...context,
+    provider: 'gemini',
+    model,
+    operation: context.operation ?? 'text-interpretation',
+    usageOf: (result) => {
+      const usage = (result as ProviderOutput | null)?.usage;
+      return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
+    },
+  });
 }
 
 export async function generateWithGeminiAudioSegment(
   prompt: string,
   audioBase64: string,
   timeoutMs = 12_000,
+  context: AIProviderRequestContext = {},
 ): Promise<ProviderOutput> {
+  const model = getGeminiAnalysisModel();
   return withProviderDeadline(async (signal) => {
     const credentialSource = getGeminiCredentialSource();
     if (
@@ -254,7 +271,6 @@ export async function generateWithGeminiAudioSegment(
       );
     }
     const ai = await getGeminiClient();
-    const model = getGeminiAnalysisModel();
     const response = await ai.models.generateContent({
       model,
       contents: [
@@ -277,12 +293,22 @@ export async function generateWithGeminiAudioSegment(
       model,
       usage: normalizeGeminiUsage(response.usageMetadata),
     };
-  }, timeoutMs);
+  }, timeoutMs, {
+    ...context,
+    provider: 'gemini',
+    model,
+    operation: context.operation ?? 'audio-interpretation',
+    usageOf: (result) => {
+      const usage = (result as ProviderOutput | null)?.usage;
+      return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
+    },
+  });
 }
 
 export async function generateWithOpenAI(
   prompt: string,
   timeoutMs = PROVIDER_ATTEMPT_TIMEOUT_MS,
+  context: AIProviderRequestContext = {},
 ): Promise<ProviderOutput> {
   return withProviderDeadline(async (signal) => {
     if (!isOpenAIConfigured()) {
@@ -320,5 +346,14 @@ export async function generateWithOpenAI(
       model: OPENAI_ANALYSIS_MODEL,
       usage: normalizeUsage(inputTokens, outputTokens),
     };
-  }, timeoutMs);
+  }, timeoutMs, {
+    ...context,
+    provider: 'openai',
+    model: OPENAI_ANALYSIS_MODEL,
+    operation: context.operation ?? 'text-interpretation',
+    usageOf: (result) => {
+      const usage = (result as ProviderOutput | null)?.usage;
+      return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
+    },
+  });
 }
