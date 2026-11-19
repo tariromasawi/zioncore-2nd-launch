@@ -101,25 +101,29 @@
   documents CountTokens as non-billable. This verifies IAM, model/location, and
   text/audio request formats; Cloud Run's metadata-based ADC and billable
   generation/streaming remain unverified.
-- The owner-authorized, 32-output-token-capped text-stream and synthetic
-   0.25-second audio-generation checks timed out as one batch after five minutes
-   without per-request results. The harness lacked per-call deadlines and only
-   emitted results after the batch, explaining the missing diagnostics but not
-   whether the provider accepted either request. Cloud Logging had no matching
-   entries and Vertex EU online-prediction metrics had no series in the checked
-   24-hour window; neither absence proves that no request was accepted. No retry
-   was made. Non-billable CountTokens measured 11 text input tokens and 26
-   prompt-plus-audio tokens; the combined capped estimate is at most $0.000714
-   USD at conservative $2/$10 per-million-token rates, but actual usage and cost
-   are unknown. The quota query returned no model-specific numeric effective
-   limit. These remain release checks; do not claim AI generation or streaming
-   is verified.
+- The first capped text/audio batch timed out at the outer five-minute tool
+  deadline without per-request diagnostics. In the later authorized controlled
+  retry, one genuine Gemini text stream completed in 2,231 ms but failed strict
+  JSON validation. Its correlation ID was
+  `b19a0b59-5aea-433e-b106-cac44ff60613`; the one-off harness did not retain the
+  exact HTTP status or returned token-usage metadata after the parse failure.
+  CountTokens measured 15 text input tokens. The 32-output-token cap gives a
+  conservative single-call estimate of $0.000350 USD; the earlier combined
+  planning estimate using a 26-token audio preflight was $0.000722 USD. Actual
+  usage and cost remain unknown. The audio request was skipped because Test A
+  did not pass; no automatic retry or further generation was made. The
+  temporary runtime-scoped Token Creator binding was removed and independently
+  verified absent. Cloud Logging and inspected Vertex metrics had no matching
+  records, and the quota query returned no model-specific numeric effective
+  limit. Billable generation is not verified end to end.
 - Provider diagnostics now emit server-generated request and attempt IDs,
   timestamps, provider/model/operation, duration, returned token counts, timeout
   status, and sanitized error fields. They exclude prompts, audio, credentials,
   and raw provider error messages. API tests verify the response correlation
-  header and that telemetry omits prompt/error content. No generation retry was
-  performed.
+  header and that telemetry omits prompt/error content. The production
+  instrumentation is present on the branch; the one-off direct test still needs
+  to retain response status and token usage before response parsing on any
+  separately authorized retry.
 - The deployment container was not built locally and the workflow was not run;
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.

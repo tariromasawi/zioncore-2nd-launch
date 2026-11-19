@@ -53,33 +53,52 @@ documents CountTokens as non-billable. This verifies authentication,
 model/location availability, and text/audio request formats; it does not test
 paid generation or streaming.
 
-An owner-authorized verification batch contained one 32-token-capped text stream
-and one 32-token-capped interpretation of a synthetic 0.25-second WAV. The outer
-test process timed out after five minutes before it emitted either result. The
-test harness had no per-request abort deadline and printed results only after
-the complete batch, so the observed failure is a loss of per-request diagnostics;
-it does not establish whether the provider accepted either request or what caused
-the delay. Non-billable CountTokens confirmed input sizes of 11 text tokens and
-26 tokens for the prompt plus synthetic WAV. With the output cap on each request
-and conservative $2/$10 per-million-token rates, the combined maximum estimate
-is $0.000714 USD; actual usage and cost remain unknown. No matching Cloud Logging
-entries or Vertex EU online-prediction metric series appeared in the inspected
-24-hour window. Missing telemetry is not evidence that no request was accepted.
-No retry has been made.
+An earlier authorized batch containing one 32-token-capped text stream and one
+synthetic-audio request timed out at the outer five-minute tool deadline without
+per-request results. Its harness had no per-request deadline or incremental
+result output. That explains the missing diagnostics but not whether either call
+was accepted. Non-billable CountTokens measured 11 text tokens and 26
+prompt-plus-audio tokens; the capped estimate was $0.000714 USD at conservative
+$2/$10 per-million-token rates. Actual usage and cost are unknown.
+
+The owner later authorized one controlled text generation and, only if it
+validated, one synthetic-audio request. One genuine Vertex AI text stream for
+`gemini-3.8-flash` completed in 2,231 ms on 2026-11-19. Correlation ID:
+`b19a0b59-5aea-433e-b106-cac44ff60613`; attempt ID:
+`3d0a97a2-9489-4151-88c6-0fba07547571`. The stream completed without an SDK
+transport error, but the returned text failed strict JSON parsing. The exact
+HTTP status and response token-usage metadata were not retained by the one-off
+test harness after that parse failure; therefore actual usage and cost cannot be
+reported. The exact text was not logged. CountTokens measured 15 input tokens;
+the test's 32-token output cap gives a conservative single-call estimate of
+$0.000350 USD, not an absolute cap. The combined planning estimate using the
+previous 26-token audio preflight was $0.000722 USD.
+
+Test B was correctly skipped because Test A did not pass structural validation.
+No automatic retry occurred. The temporary `roles/iam.serviceAccountTokenCreator`
+binding was limited to the dedicated runtime service account, removed in the
+test cleanup, and independently verified absent afterward. Cloud Logging and
+the inspected Vertex EU/Global metrics had no per-request records in the test
+window; this does not establish actual billing. No further Gemini generation
+will run without separate authorization.
 
 The Cloud Billing Budgets API is enabled. The project had no existing
 project-scoped budget, so an alert-only £1/month budget was created for project
 225578874852 with 25%, 50%, 90%, 100% current-spend and 100% forecast thresholds.
 It has no spend cap: alerts do not stop or limit spending. Billing account
-configuration was not changed. The Vertex quota response exposed no
-model-specific numeric effective limit for this check.
+configuration was not changed. The service identity can inspect project-scoped
+budgets but cannot list budgets at the entire billing-account scope; that wider
+inspection requires billing-account access. The Vertex quota response exposed
+no model-specific numeric effective limit for this check.
 
 The API now assigns a server-generated request ID and returns it in
 `X-Request-Id`. AI provider attempts log that correlation ID, a unique attempt
 ID, provider/model/operation, timestamps, duration, token usage when returned,
 and sanitized error name/code/status. Prompt text, audio, credential values,
-and raw provider error messages are excluded. This instrumentation does not
-retroactively reveal the outcome of the timed-out test batch.
+and raw provider error messages are excluded. The production path has
+request-level telemetry tests, but the direct generation test harness did not
+persist usage metadata when response validation failed; fix this before another
+authorized generation check.
 
 The optional OpenAI Secret Manager resource has no enabled version. No Gemini
 or OpenAI key was copied from the Replit workspace. The project reports an
