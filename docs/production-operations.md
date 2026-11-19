@@ -57,11 +57,15 @@ One owner-authorized verification batch containing a 32-token-capped text
 stream and a 32-token-capped interpretation of a synthetic 0.25-second WAV
 timed out after five minutes before returning per-request results. The client
 cannot determine whether either request was accepted or provide actual token
-usage/cost. A Cloud Logging query returned no matching entries, and the batch
-was not retried to avoid duplicate charges. The Billing Budgets API is disabled,
-so no project budget was verified; the Vertex quota response exposed no
-model-specific numeric effective limit for this check. Do not treat model
-generation or streaming as verified or proceed to deployment on this evidence.
+usage/cost. Non-billable CountTokens confirmed input sizes of 11 text tokens and
+26 tokens for the prompt plus synthetic WAV. With the 32-token output cap on
+each request and conservative $2/$10 per-million-token rates, the combined
+maximum estimate is $0.000714; the actual charge is unknown. A Cloud Logging
+query returned no matching entries, and the batch was not retried to avoid
+duplicate charges. The Billing Budgets API is disabled, so no project budget was
+verified; the Vertex quota response exposed no model-specific numeric effective
+limit for this check. Do not treat model generation or streaming as verified or
+proceed to deployment on this evidence.
 
 The optional OpenAI Secret Manager resource has no enabled version. No Gemini
 or OpenAI key was copied from the Replit workspace. The Cloud Billing API was

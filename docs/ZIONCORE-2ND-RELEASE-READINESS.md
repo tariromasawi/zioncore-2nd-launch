@@ -102,9 +102,13 @@
   0.25-second audio-generation checks timed out as one batch after five minutes
   without per-request results. Cloud Logging returned no matching entries, so
   request acceptance, response validity, usage, and actual cost are unknown.
-  No retry was made. The Billing Budgets API is disabled, and the quota query
-  returned no model-specific numeric effective limit. These are unresolved
-  release checks; do not claim AI generation or streaming is verified.
+  No retry was made. Non-billable CountTokens measured 11 text input tokens and
+  26 prompt-plus-audio tokens; with a 32-token output cap per request and
+  conservative $2/$10 rates, the combined maximum estimate is $0.000714, but
+  the actual charge is unknown. The Billing Budgets API is disabled, and the
+  quota query returned no model-specific numeric effective limit. These are
+  unresolved release checks; do not claim AI generation or streaming is
+  verified.
 - The deployment container was not built locally and the workflow was not run;
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.

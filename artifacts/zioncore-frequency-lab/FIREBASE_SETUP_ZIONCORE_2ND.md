@@ -163,6 +163,10 @@ chat message.
   whether either request was accepted; response validity, token usage, and
   actual cost are unavailable. The batch was not retried to avoid duplicate
   charges.
+- Non-billable CountTokens measured 11 text input tokens and 26 prompt-plus-audio
+  tokens. With the 32-token output cap for each request and conservative
+  $2/$10-per-million-token rates, the combined maximum estimate is $0.000714;
+  the actual charge is unknown.
 - The Service Usage API returned EU online-prediction quota definitions but no
   model-specific numeric effective limit for this project/model. The Cloud
   Billing Budgets API returned HTTP 403 because it is not enabled, so no
