@@ -14,12 +14,14 @@
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. The structured-output change
-  `3e523f69029f96aedeed43a93a4f33f6ea8b9b3b` passed run `44575531289`;
-  documentation follow-up `99a50c232929fb0d2b64d5df0637ec466afee9a7` passed
-  run `44575954927`. Earlier baseline runs (`44550130621` and `44550116862`)
-  also passed for `e6ca411dda2593658052c942f8d95b24a7bb490c`. PR #1 remains
-  open and unmerged.
+  production builds. Current workflow commit
+  `00c1fe8c158b9dadf60d05f9806804151fcceb78` passed both push run
+  `44576648512` and pull-request run `44576662852`, including locked install,
+  integrity, typecheck, unit/emulator tests and builds. Actions were updated to
+  current runtime versions; the previous Node 20 deprecation warnings are no
+  longer present in these runs. Earlier structured-output and baseline commits
+  also passed their recorded CI runs. PR #1 remains open, unmerged and
+  mergeable.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
 - The complete standalone application source is present in
