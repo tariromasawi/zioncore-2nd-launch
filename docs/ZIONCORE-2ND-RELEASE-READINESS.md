@@ -7,16 +7,16 @@
   initial root commit is a clean export from private source commit
   `ee647e19e3c01e5622394f09d90b5503d4943e0c`; no private Git history was copied.
   Original-workspace byte-for-byte parity remains unverified.
-- The repository now contains 609 tracked files. `SOURCE_INVENTORY.sha256`
-  records 608 tracked-file checksums; CI verifies the manifest after every push.
+- The repository contains 614 tracked files. `SOURCE_INVENTORY.sha256` records
+  checksums for the 613 other tracked files; CI verifies the manifest after
+  every push.
 - The Phase 1 source baseline and file-comparison findings are recorded in
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. The landing-page and standalone-origin changes passed the
-  full local release gate and GitHub Actions run
-  `44333293318` for source commit
-  `53f76547f4b23aa83ed2b9235fd4e4603dc4d797`.
+  production builds. Both latest CI runs (`44550130621` and `44550116862`)
+  completed successfully for commit
+  `e6ca411dda2593658052c942f8d95b24a7bb490c`. PR #1 remains open and unmerged.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
 - The complete standalone application source is present in
@@ -128,21 +128,38 @@
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.
 
+## Public repository security and privacy review — 19 November 2026
+
+- GitHub reports this repository as public. Secret scanning and push protection
+  are enabled. The open and resolved secret-alert queries both returned zero
+  alerts.
+- A targeted high-confidence credential-pattern scan across reachable Git
+  history found no private-key headers, cloud access keys, GitHub tokens,
+  OpenAI/Stripe secrets, webhook secrets, Slack tokens, or Google API-key
+  patterns. The only credential-style tracked files are the two `.env.example`
+  templates. This targeted scan is not a security certification.
+- No code-scanning analysis is configured; GitHub returned `no analysis found`.
+  The Replit SAST and privacy scanners in this workspace scan the main workspace
+  root, not this nested ZionCore 2nd worktree, so their results are not claimed
+  as scans of this public repository.
+- The byte-preserved Genesis source contains owner-provided family/devotional
+  names. It remains unchanged as required; public disclosure of that material
+  is a residual privacy consideration. No source or Git history was rewritten.
+
 ## Dependency advisory status
 
 - `pnpm audit --prod` reports no known vulnerabilities in production
   dependencies.
 - The full development dependency audit reports three moderate advisories
-  inside the Firebase CLI (`firebase-tools@15.36.0`) dependency tree:
-  `glob@10.5.0`, `minimatch@9.0.9`, and `@opentelemetry/core@1.30.1`.
-  `firebase-tools@15.36.0` is the current published version; a blanket major
-  override could break the deployment/emulator CLI, so no unverified override
-  was applied. Recheck when the upstream CLI updates its dependency ranges.
+  inside the Firebase CLI (`firebase-tools@15.36.0`) development dependency
+  tree: `glob@10.5.0`, `minimatch@9.0.9`, and `@opentelemetry/core@1.30.1`.
+  Registry metadata reports `firebase-tools@15.37.0` as the latest release, but
+  the package manager's minimum-release-age policy rejected it as too recent on
+  19 November 2026. The policy was not bypassed. A blanket major override could
+  break the deployment/emulator CLI, so no unverified override was applied.
 - GitHub currently lists a high-severity `picomatch@4.0.7` alert on the default
   branch, but the advisory is marked withdrawn and is absent from the local npm
   audit result. GitHub also reports the three moderate development-tree alerts.
-  The code-scanning alerts endpoint returned 404; whether code scanning is
-  configured is not verified.
 
 ## Historical hosting and source-visibility note
 
