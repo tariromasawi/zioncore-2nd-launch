@@ -98,6 +98,13 @@
   documents CountTokens as non-billable. This verifies IAM, model/location, and
   text/audio request formats; Cloud Run's metadata-based ADC and billable
   generation/streaming remain unverified.
+- The owner-authorized, 32-output-token-capped text-stream and synthetic
+  0.25-second audio-generation checks timed out as one batch after five minutes
+  without per-request results. Cloud Logging returned no matching entries, so
+  request acceptance, response validity, usage, and actual cost are unknown.
+  No retry was made. The Billing Budgets API is disabled, and the quota query
+  returned no model-specific numeric effective limit. These are unresolved
+  release checks; do not claim AI generation or streaming is verified.
 - The deployment container was not built locally and the workflow was not run;
   local validation can verify source/build behavior but cannot prove Cloud
   Build, Firebase Hosting, App Check, or production AI operation.

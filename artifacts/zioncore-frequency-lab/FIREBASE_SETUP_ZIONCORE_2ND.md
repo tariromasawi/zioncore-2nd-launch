@@ -156,6 +156,19 @@ chat message.
 - The deployment workflow now selects Vertex ADC and does not require a Gemini
   Secret Manager version. If an OpenAI fallback is configured, its own secret
   version is still required.
+- One owner-authorized verification batch attempted a text stream and a
+  synthetic 0.25-second audio interpretation, each capped at 32 output tokens.
+  The batch timed out after five minutes before emitting per-request results.
+  A read-only Cloud Logging query found no matching entries, so it is unknown
+  whether either request was accepted; response validity, token usage, and
+  actual cost are unavailable. The batch was not retried to avoid duplicate
+  charges.
+- The Service Usage API returned EU online-prediction quota definitions but no
+  model-specific numeric effective limit for this project/model. The Cloud
+  Billing Budgets API returned HTTP 403 because it is not enabled, so no
+  project budget was confirmed. The test was limited to the explicitly
+  authorized two-request batch; broader generation remains unverified and
+  production deployment is still gated.
 
 ## Data and access boundaries
 
