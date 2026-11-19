@@ -128,6 +128,7 @@
 3403b6e9eff18581259a6cf4affb77624cfb2df73fbdef4a5c14b85ed1cbce74  artifacts/api-server/src/lib/task-pricing.test.ts
 357d56c545b69b18a067c2ccb82fd837f03ec333fa72d5cc351c93059b9497b5  artifacts/zioncore-frequency-lab/src/lib/audio-capture-capabilities.test.ts
 35fbf1391b00131bc4bfe53a6476a45e28c4c43a073de711f05f1fa781ddf40f  artifacts/zioncore-frequency-lab/src/lib/membership-model.ts
+361132d08fbcb9e8b9cec581e5591d5173d4f53ec9c4258c76bcbf90f24d7186  docs/ZIONCORE-2ND-EXECUTION-MATRIX.md
 3711abab8642e029f5687a127da9b2947594dfc5b93f31c07b719f356a829584  artifacts/api-server/src/lib/ai-audio-input.ts
 371a3ba423c8ef4caf19a4d8d9a5aaee0b4b00ff7a134517cbefe2b063c8d7d5  artifacts/api-server/src/routes/index.ts
 379baa52a83a11514b1c03aeb4ecc05d3260c8cc322ad1415e4b56a054eac8b3  ZIONCORE_PHASE_99_RELEASE_GATE.md
@@ -241,7 +242,6 @@
 6823e57a8c21291c3359f7dc5b3582a9e7813806cdd6c21fbd4d1ef5bc47575a  artifacts/api-server/src/lib/ai-interpretation-jobs.ts
 6840c9b1fc0154a1dddc3c9fb193e77c135ed17099836302f93ac20a5c021d25  ZIONCORE_PHASE_3_RECOVERY_INTEGRATION.md
 68a81f5f0f04f3dea9f123c2cab04df9ba427833cd1037ba0fb424d3a030f8e4  artifacts/api-server/src/scripts/upload-zioncore-visuals.ts
-68b306c47721e60dba36523a3bf348ef0f7c88347558277ecc930f387ab16a93  .github/workflows/zioncore-2nd-ci.yml
 695369ea4d1ba4438dcedacaa8059b08b6463ac93170360f3bd42b983b7608e9  artifacts/zioncore-frequency-lab/src/components/ui/alert.tsx
 69830612c29d96ca184b0df2a4fd77cf513993b0324ab6a1b5ae516277d229de  artifacts/zioncore-frequency-lab/src/lib/acoustic-message.sample-rate.test.ts
 69c976d11de35f0ac391934625beeccdd1b2689ba5d0f14c54b5384d4c30a9c9  lib/db/tsconfig.json
@@ -330,6 +330,7 @@
 88539cf99ff24b3741340fe3474448f7221aa83f3fb44570a45e3516ce906cfa  artifacts/zioncore-frequency-lab/src/lib/resonance-choreography.ts
 88b213bd22f838e0ae6a9b72c64111ef2c5c4f5dfc26815eece7ba3c01e8bf04  lib/api-zod/src/generated/types/aIInterpretationContentSignalFamily.ts
 896b195ea51735ea6b42a56880a2f77c3745582e56505a9bf4ec336a1928d264  artifacts/zioncore-frequency-lab/src/lib/customer-service-recommendations.test.ts
+8a579f83ff27e9c4bd2ce57f1237752268248e6903add0acc7e39593302cb3a8  .github/workflows/zioncore-2nd-ci.yml
 8aa56b8f465b8005b8b3c92a5d5ad733839af4ec34421667e558396f0cbd5ea9  lib/api-zod/src/generated/types/adminCurrencyTotals.ts
 8aad23f2988b3da2b5cba3bf3a79461273ac4986924760c532950e445787f4aa  artifacts/zioncore-frequency-lab/src/components/bioacoustic-evidence-panel.tsx
 8b2968041b16a02f85eb789bef3f67b6153b22ce3c990d59b1cd453155612d99  artifacts/api-server/src/lib/credit-ledger.ts
@@ -602,7 +603,6 @@ f9104e1b18a18a08e5d46686a98ea71bde5355d3c007cd31ef4da709d926fe9d  lib/api-zod/sr
 f957f1c14aea926044e5e4f3e6d111ca2c26d51d3b688caeb65bc2879f45c5f7  lib/api-zod/src/generated/types/spectralMatrixAnalysis.ts
 f9735d2c3fb2ea06f102f8ca4c2efbd65d845cfa5409fb5bd5773d2a654186e2  artifacts/zioncore-frequency-lab/src/lib/firebase.ts
 f98b338fd23e4b4c9dd73ef857a3465e8e9673bd7da22828d6b1e34e2b1707cc  lib/api-zod/src/generated/types/getAiInterpretationQuoteParams.ts
-f9df80f0513603072b7a36df9952662dc57a5585b19bce6d8cbf047e93060ffc  docs/ZIONCORE-2ND-EXECUTION-MATRIX.md
 fa5c4d3dec7dd5cad6dce0c401b383507ece0e6f8ce85f88c34a1f0356d2e425  patches/teeny-request@11.1.1.patch
 fbc0c7db4221227941271a004bf71db5067aee9d8668f3351d91113cd5934c8c  artifacts/zioncore-frequency-lab/src/components/ui/label.tsx
 fbe05b5a038992788225f7e65eb0ca93a1d252e5ecf202e3c60d4b2d7f848652  artifacts/api-server/.env.example

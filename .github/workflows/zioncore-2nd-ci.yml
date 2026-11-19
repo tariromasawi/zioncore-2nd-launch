@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "zioncore-2nd/**"
+      - "deployment/**"
   pull_request:
   workflow_dispatch:
 

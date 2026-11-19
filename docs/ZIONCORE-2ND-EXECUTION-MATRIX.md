@@ -1,7 +1,7 @@
 # ZionCore 2nd execution matrix
 
-**Updated:** 18 November 2026
-**Source branch:** `main`
+**Updated:** 19 November 2026
+**Source branch:** `deployment/zioncore-2nd`
 **Export source commit:** `ee647e19e3c01e5622394f09d90b5503d4943e0c`
 **Firebase project:** `zioncore-2nd-production` (`225578874852`)
 **Status rule:** “Present” means source exists; “verified” means the stated behavior was exercised. A passing build is not production acceptance.
