@@ -96,9 +96,57 @@ The API now assigns a server-generated request ID and returns it in
 ID, provider/model/operation, timestamps, duration, token usage when returned,
 and sanitized error name/code/status. Prompt text, audio, credential values,
 and raw provider error messages are excluded. The production path has
-request-level telemetry tests, but the direct generation test harness did not
-persist usage metadata when response validation failed; fix this before another
-authorized generation check.
+request-level telemetry tests. Production usage normalization includes both
+candidate and reasoning tokens in billable output estimates.
+
+## Controlled Gemini text result (2026-11-20)
+
+After a separate owner authorization, exactly one streaming text-generation
+request was made with synthetic data, the production prompt, the preserved
+Genesis context and the production response schema. No audio request or retry
+was made. The first CountTokens preflight used an incorrect EU endpoint and
+returned HTTP 404 without generation; the endpoint was corrected to the GenAI
+SDK's EU multi-region `v1beta1` endpoint before the successful preflight and
+generation.
+
+- Model/region: `gemini-3.8-flash`, Vertex AI `eu`.
+- Correlation ID: `8de1f2fd-1229-45ab-879a-031811d87b84`.
+- Request: HTTP 200, stream completed in 36,566 ms, finish reason `STOP`,
+  zero stream-frame parse errors.
+- Response: strict JSON parsing and all 17 response-schema fields passed.
+  Report-quality validation rejected the response; it was not usable or saved.
+- Quality failure categories: `SOURCE_PROXIMITY`,
+  `EXACT_HARMONIC_OVERCLAIM`,
+  `UNVALIDATED_BIOACOUSTIC_CLASSIFICATION`, and
+  `CONFIDENCE_SCOPE_OVERCLAIM`. The exact generated text was intentionally not
+  retained or logged.
+- Genesis context was included. The integrity/quality checks did not accept
+  unsupported attribution or claims; the four categories above remain a real
+  model-quality failure.
+- CountTokens preflight, including the production schema, estimated 5,169
+  input tokens. The completed request reported 5,901 prompt tokens, 4,282
+  candidate tokens and 1,343 reasoning tokens (provider `totalTokenCount`:
+  10,183). Thus the final request exceeded the separately authorized 5,200
+  input-token limit by 701 tokens. The preflight undercounted actual usage by
+  732 tokens; its precise provider-side cause is not established. This was an
+  execution-control failure. No further generation is authorized or will run
+  until the discrepancy is resolved and the owner separately authorizes it.
+- Conservative estimated cost including reasoning tokens: **US$0.068052**
+  at the application's $2/$10-per-million rates. This is an estimate, not an
+  invoice or hard spend cap. Current accrued project spend was not available
+  from the Budgets API.
+- The verified £1/month alert budget and its 25%, 50%, 90%, 100% current-spend
+  and 100% forecast alerts remained unchanged; the budget is not a spend cap.
+- The bootstrap identity's temporary `roles/iam.serviceAccountTokenCreator`
+  grant was scoped to the dedicated runtime service account, then removed and
+  independently verified absent. No credentials, tokens, prompt text, response
+  text or customer data were written to logs or source.
+
+The generation-quality failure is now covered by a stronger final prompt audit
+and a regression test for all four rejection categories. These local changes
+have not been verified by another billable generation. Any additional live
+generation requires fresh owner authorization. This test does not verify Cloud
+Run's production ADC, a saved customer report, or live application delivery.
 
 The optional OpenAI Secret Manager resource has no enabled version. No Gemini
 or OpenAI key was copied from the Replit workspace. The project reports an

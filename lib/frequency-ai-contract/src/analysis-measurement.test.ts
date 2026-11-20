@@ -28,6 +28,22 @@ test('accepts a valid base measurement when optional derived analysis is unavail
   assert.doesNotMatch(prompt, /Deterministic ZionCore resonance profile/);
 });
 
+test('analysis prompt carries the strict boundaries required by the live quality gate', () => {
+  const prompt = buildAnalysisPrompt(
+    baseMeasurement,
+    false,
+    'Synthetic QA test data; not a field recording.',
+    false,
+  );
+
+  assert.match(prompt, /Mandatory final report audit/i);
+  assert.match(prompt, /review every field, not only the summary/i);
+  assert.match(prompt, /Do not infer source distance or microphone proximity/i);
+  assert.match(prompt, /never call a non-zero difference exact/i);
+  assert.match(prompt, /omit animal or environmental source candidates for synthetic or QA data/i);
+  assert.match(prompt, /confidenceScope must explicitly limit confidence/i);
+});
+
 test('still validates the range of optional derived features when they are supplied', () => {
   const result = analysisMeasurementSchema.safeParse({
     ...baseMeasurement,
