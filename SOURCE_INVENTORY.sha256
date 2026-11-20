@@ -83,6 +83,7 @@
 2158c2dd3fe618383aad0e222182aff823396dc007950266764fe628796362ff  docs/ZIONCORE-ACCOUNT-BILLING-ACCESSIBILITY.md
 222020e1ac703ce01700d6e8822c6263932bc71c481d724b8ef53ccaae8ad63f  artifacts/zioncore-frequency-lab/src/components/ui/navigation-menu.tsx
 225d5268f406d018c9d3c6db9c9c83eff8609ba04d28293e0cefa388b6ab152c  artifacts/zioncore-frequency-lab/public/robots.txt
+22bcb6ccdbe7013659e323121d5ee805667819c8edbe5728b3d72781f8972886  docs/production-operations.md
 22d00f3ba959107017d62ae8ddd6ce4a6174fff7b7e4ceea573cc6980af2796d  lib/api-zod/src/generated/types/adminStripeSummary.ts
 230cca733037c08dfe5f56be260993304a6076d32a5dccafab6aa19968929938  artifacts/api-server/src/lib/firebase-diagnostics.test.ts
 23135db672d6421b37b5ec14b7dea61e0bc5e726408a414c40d60350d53b2510  lib/api-zod/src/generated/types/checkoutSessionResponse.ts
@@ -129,7 +130,6 @@
 334be5a245c75ec50d5825ae4f1f8c955ba1e1ad0fde5562873433acce2aa2c1  lib/integrations-openai-ai-server/src/index.ts
 335e736cdf4b9892c4efbf8c6d6783e24a17ee07e8e0eb6c02015473c6a92044  artifacts/zioncore-frequency-lab/src/lib/device-adapters.ts
 3403b6e9eff18581259a6cf4affb77624cfb2df73fbdef4a5c14b85ed1cbce74  artifacts/api-server/src/lib/task-pricing.test.ts
-353762b8c1089821df126459ca7c96436c0487f8f5ac434fc6e6925f0637c002  docs/production-operations.md
 357d56c545b69b18a067c2ccb82fd837f03ec333fa72d5cc351c93059b9497b5  artifacts/zioncore-frequency-lab/src/lib/audio-capture-capabilities.test.ts
 35fbf1391b00131bc4bfe53a6476a45e28c4c43a073de711f05f1fa781ddf40f  artifacts/zioncore-frequency-lab/src/lib/membership-model.ts
 3711abab8642e029f5687a127da9b2947594dfc5b93f31c07b719f356a829584  artifacts/api-server/src/lib/ai-audio-input.ts
@@ -360,6 +360,7 @@
 946071e7889584d63e56ae73706eea6e137ebf6b11729d9f980c02b53de38b4c  artifacts/zioncore-frequency-lab/MEMBERSHIP_SETUP.md
 94c33ad00a029bb7592fce9cb16b97b9a4db559b1827b1fc6f033ce4365fbc87  artifacts/zioncore-frequency-lab/src/lib/observation-storage.test.ts
 9507e88fbcc31d26b4906d3c85fe71ca61b47af44a8ee69146c09c9950d23307  artifacts/api-server/src/lib/emulator-test-safety.test.ts
+95290ec5d54ca13115ddd3c7f96e9ed7c319121ce6b5578b3476a44d6e7a124e  artifacts/api-server/src/routes/ai-interpretation.integration.test.ts
 95cdb1d7475a5c158b1d045d07de24d9a7e65d30c7183c7b8878f108590917b0  artifacts/api-server/src/lib/ai-request-guard.ts
 9652d0b8aa4020d7dcf7d3e3dbcd027a8b851ce2bbf9fcee8b07faa61643452e  research/zioncore-bioacoustic-evaluation.md
 967951266987a853062017f76819ff58042f2a62d7154d99a7ccadaef45b151b  research/zioncore-completion-audit.md
@@ -392,7 +393,6 @@ a00fda842228e3478705abcf2c76d9641f5d6263cd5d2df0b613d5379088ad73  lib/api-client
 a050849d52becc04165e95cdd2ee5dba41dd56f3ddc1bbfb96999ae71cf33ce7  artifacts/api-server/src/lib/ai-audio-input.test.ts
 a0d56559327ac76b4346c1d4cd296121e9da9c8492121169bcefed6babee5bcc  .dockerignore
 a109f3537b4214c4d2b92167553dc1a26d59456518ef97238bff92039256668f  artifacts/zioncore-frequency-lab/src/pages/voice-v2.tsx
-a14639fc24c0cce574ed543964c28640f5fd8f5024965e7d07a68edbfe73d6b3  artifacts/api-server/src/routes/ai-interpretation.integration.test.ts
 a1551ce5f8258f13d315f9a39c606fd8e6011a6a74de40545923ac8ff4edf706  artifacts/zioncore-frequency-lab/src/lib/observation-backup.ts
 a186fe3461a13241be372750ccd2c6a27e01bf764a0021851ba50878082ef83c  artifacts/zioncore-frequency-lab/src/lib/live-lab.test.ts
 a25d7f52f54b3c468e7602d2db33bf07c3aa24269ede042f9d962beb8fcff03f  artifacts/zioncore-frequency-lab/src/pages/public-home/PublicHome.tsx

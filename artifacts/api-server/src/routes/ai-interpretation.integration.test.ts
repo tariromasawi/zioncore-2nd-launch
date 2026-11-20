@@ -163,7 +163,22 @@ async function withServer(
 const baseLedger = createCreditLedger(db, 'test');
 const providerCalls = new Map<string, number>();
 const failingProviderUids = new Set<string>();
+const qualityFailingProviderUids = new Set<string>();
 const baseMeasurementUids = new Set<string>();
+const invalidQualityReport = {
+  ...report,
+  executiveSummary: 'This synthetic QA source is near the microphone.',
+  harmonicAnalysis: 'The 880.5 Hz peak is exactly an octave above the fundamental.',
+  candidateExplanations: [{
+    label: 'Owl call',
+    rationale: 'A confident source label.',
+    confidence: 'moderate',
+    evidenceFor: 'The audio appears to contain a bird.',
+    evidenceAgainst: 'No reference recording is supplied.',
+    whatWouldDiscriminate: 'Compare against a labeled recording.',
+  }],
+  confidenceScope: 'High confidence that the source is a bird species.',
+};
 const routeLedger = {
   ...baseLedger,
   async settleReservation(uid: string, input: Parameters<typeof baseLedger.settleReservation>[1]) {
@@ -196,13 +211,20 @@ function providerFactory({ uid, prompt }: { uid: string; prompt: string }) {
         throw Object.assign(new Error('primary provider unavailable'), { status: 503 });
       }
       return {
-        text: JSON.stringify(report),
+        text: JSON.stringify(qualityFailingProviderUids.has(uid) ? invalidQualityReport : report),
         model: 'route-integration-provider',
         usage: { inputTokens: 12, outputTokens: 24 },
       };
     },
     async openai() {
       providerCalls.set(uid, (providerCalls.get(uid) ?? 0) + 1);
+      if (qualityFailingProviderUids.has(uid)) {
+        return {
+          text: JSON.stringify(invalidQualityReport),
+          model: 'route-integration-fallback-provider',
+          usage: { inputTokens: 14, outputTokens: 26 },
+        };
+      }
       if (!failingProviderUids.has(uid)) {
         throw new Error('Fallback provider must not run after a valid primary response.');
       }
@@ -279,6 +301,50 @@ test('cloud interpretation fails closed while disabled and exposes no paid quote
     assert.equal(response.status, 503);
     assert.equal(providerCalls.get(uid) ?? 0, 0);
   }, disabledEnvironment);
+});
+
+test('quality-invalid provider reports are not saved or charged after bounded fallback also fails', async () => {
+  const uid = `quality-failed-route-${randomUUID()}`;
+  await baseLedger.grantCredits(uid, {
+    amount: 100,
+    bucket: 'purchased',
+    idempotencyKey: `grant-${uid}`,
+  });
+  qualityFailingProviderUids.add(uid);
+
+  await withServer(createIdentityMiddleware(), async baseUrl => {
+    const quote = await issueQuote(baseUrl, uid);
+    const response = await fetch(`${baseUrl}/ai/interpretation`, {
+      method: 'POST',
+      headers: paidRequestHeaders(uid, quote, 'quality-invalid-interpretation-001'),
+      body: JSON.stringify(requestBody),
+    });
+    assert.equal(response.status, 502);
+    assert.equal(providerCalls.get(uid), 2, 'one primary and one bounded fallback were attempted');
+
+    const wallet = await baseLedger.readWallet(uid);
+    assert.deepEqual({
+      purchasedCredits: wallet.purchasedCredits,
+      reservedCredits: wallet.reservedCredits,
+      availableCredits: wallet.availableCredits,
+    }, {
+      purchasedCredits: 100,
+      reservedCredits: 0,
+      availableCredits: 100,
+    });
+    const history = await baseLedger.listTransactions(uid);
+    assert.equal(history.filter(item => item.type === 'reservation').length, 1);
+    assert.equal(history.filter(item => item.type === 'release').length, 1);
+    assert.equal(history.filter(item => item.type === 'settlement').length, 0);
+
+    const jobHash = createHash('sha256')
+      .update(`${uid}:quality-invalid-interpretation-001`)
+      .digest('hex');
+    const job = await db.doc(`users/${uid}/ai_interpretation_jobs/${jobHash}`).get();
+    assert.equal(job.data()?.status, 'failed');
+    assert.equal(job.data()?.response, null, 'invalid report must not be persisted as a result');
+  });
+  qualityFailingProviderUids.delete(uid);
 });
 
 test('paid interpretation quote, reserve, generation, settlement, replay, and failure release run through HTTP', async () => {

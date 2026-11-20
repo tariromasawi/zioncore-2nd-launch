@@ -193,10 +193,13 @@ calls. Local analysis remains available. Enabling either cloud feature requires
 a separate owner decision after quality and financial controls are accepted.
 Mocked and deterministic regression tests cover these boundaries, token
 breakdown, the inconsistent aggregate, preflight rejection and cost estimation.
-The complete 11-step local release suite passed after these changes, including
-typechecks, unit/emulator tests and frontend/API production builds. No additional
-live generation was performed. This work does not verify Cloud Run's production
-ADC, a saved customer report, or live application delivery.
+Firestore-emulator integration also verifies that when both providers return
+quality-invalid reports, the job is marked failed, no report is stored, the
+credit reservation is released, and no settlement occurs. Its 22 tests pass.
+The complete 11-step local release suite passed before this final test-only
+addition; it is being rerun for the committed version. No additional live
+generation was performed. This work does not verify Cloud Run's production ADC,
+a successful AI report, or live application delivery.
 
 The optional OpenAI Secret Manager resource has no enabled version. No Gemini
 or OpenAI key was copied from the Replit workspace. The project reports an
