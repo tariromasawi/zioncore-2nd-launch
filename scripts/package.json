@@ -9,6 +9,7 @@
     "measure:characters": "tsx ./src/measure-meaningful-characters.ts",
     "test": "tsx --test ./src/*.test.ts",
     "test:genesis": "tsx --test ../lib/frequency-ai-contract/src/genesis-seed.test.ts",
+    "test:analysis-contract": "tsx --test ../lib/frequency-ai-contract/src/analysis-measurement.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

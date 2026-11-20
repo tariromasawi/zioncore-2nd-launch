@@ -1,14 +1,32 @@
+import {
+  ProviderOutputValidationError,
+  type ProviderOutputFailureCategory,
+} from './provider-output-validation';
+
 export type AIProvider = 'gemini' | 'openai';
 
 export type ProviderUsage = {
   inputTokens: number | null;
   outputTokens: number | null;
+  /** Gemini candidate output tokens, excluding hidden reasoning tokens. */
+  candidateTokens?: number | null;
+  /** Gemini reasoning tokens, included once in outputTokens for cost estimates. */
+  reasoningTokens?: number | null;
+  /** Tool-result tokens fed back into the model; included in inputTokens. */
+  toolUsePromptTokens?: number | null;
+  /** Provider-reported aggregate; diagnostic only, never added to component totals. */
+  reportedTotalTokens?: number | null;
+  /** Component total from the documented prompt/candidate/tool/thought breakdown. */
+  computedTotalTokens?: number | null;
+  /** Null means insufficient metadata; false flags provider aggregate inconsistency. */
+  totalTokensMatchBreakdown?: boolean | null;
 };
 
 export type ProviderOutput = {
   text: string;
   model: string;
   usage?: ProviderUsage;
+  finishReason?: string | null;
 };
 
 export type ProviderCalls = Record<AIProvider, () => Promise<ProviderOutput>>;
@@ -17,6 +35,9 @@ export type ProviderAttempt = {
   provider: AIProvider;
   model: string;
   usage: ProviderUsage | null;
+  finishReason: string | null;
+  outputStatus: 'valid' | 'invalid';
+  validationFailure?: ProviderOutputFailureCategory | 'validation_error';
 };
 
 export type RoutedInterpretation<T> = {
@@ -66,26 +87,34 @@ export function shouldFailOver(error: unknown): boolean {
 
 export async function runWithGeminiOpenAIFallback<T>(
   providers: ProviderCalls,
-  validate: (text: string) => T,
+  validate: (text: string, output: ProviderOutput) => T,
 ): Promise<RoutedInterpretation<T>> {
   const attempts: ProviderAttempt[] = [];
   try {
     const primary = await providers.gemini();
-    attempts.push({
+    const attempt: ProviderAttempt = {
       provider: 'gemini',
       model: primary.model,
       usage: primary.usage ?? null,
-    });
+      finishReason: safeFinishReason(primary.finishReason),
+      outputStatus: 'invalid',
+    };
+    attempts.push(attempt);
     try {
+      const analysis = validate(primary.text, primary);
+      attempt.outputStatus = 'valid';
       return {
-        analysis: validate(primary.text),
+        analysis,
         provider: 'gemini',
         model: primary.model,
         fallbackUsed: false,
         usage: primary.usage,
         attempts,
       };
-    } catch {
+    } catch (error) {
+      attempt.validationFailure = error instanceof ProviderOutputValidationError
+        ? error.category
+        : 'validation_error';
       // Malformed or schema-invalid output is a provider failure; make one bounded fallback call.
     }
   } catch (error) {
@@ -94,20 +123,37 @@ export async function runWithGeminiOpenAIFallback<T>(
 
   try {
     const fallback = await providers.openai();
-    attempts.push({
+    const attempt: ProviderAttempt = {
       provider: 'openai',
       model: fallback.model,
       usage: fallback.usage ?? null,
-    });
+      finishReason: safeFinishReason(fallback.finishReason),
+      outputStatus: 'invalid',
+    };
+    attempts.push(attempt);
+    const analysis = validate(fallback.text, fallback);
+    attempt.outputStatus = 'valid';
     return {
-      analysis: validate(fallback.text),
+      analysis,
       provider: 'openai',
       model: fallback.model,
       fallbackUsed: true,
       usage: fallback.usage,
       attempts,
     };
-  } catch {
+  } catch (error) {
+    const attempt = attempts.at(-1);
+    if (attempt && !attempt.validationFailure) {
+      attempt.validationFailure = error instanceof ProviderOutputValidationError
+        ? error.category
+        : 'validation_error';
+    }
     throw new AIProvidersUnavailableError(attempts);
   }
+}
+
+function safeFinishReason(value: unknown): string | null {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,48}$/.test(value)
+    ? value
+    : null;
 }

@@ -26,6 +26,10 @@ import {
 } from '../lib/ai-provider-clients';
 import { normalizeAnalysisOutput } from '../lib/ai-output-normalizer';
 import { assertAiInterpretationQuality } from '../lib/ai-interpretation-quality';
+import {
+  parseProviderJsonOutput,
+  ProviderOutputValidationError,
+} from '../lib/provider-output-validation';
 import { createAIRequestGuard } from '../lib/ai-request-guard';
 import { CreditLedgerError, getCreditLedger } from '../lib/credit-ledger';
 import {
@@ -34,6 +38,7 @@ import {
   fingerprintAiInterpretationRequest,
 } from '../lib/ai-interpretation-jobs';
 import { getAIInterpretationPrice } from '../lib/ai-interpretation-pricing';
+import { isAiGenerationEnabled, requireAiGenerationEnabled } from '../lib/ai-generation-policy';
 import { issueServiceQuote, verifyServiceQuote } from '../lib/signed-service-quote';
 import { createAiJobFinancialAudit } from '../lib/ai-job-financial-audit';
 import { getFirebaseAdminApp } from '../lib/firebase-admin';
@@ -52,12 +57,19 @@ function parseProviderJson(
   measurement: AnalysisMeasurement,
   listeningContext: string,
   includeFaithReflection: boolean,
+  finishReason: string | null | undefined,
 ) {
-  const normalized = text.trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '');
-  const analysis = explanationSchema.parse(normalizeAnalysisOutput(JSON.parse(normalized)));
-  assertAiInterpretationQuality(analysis, measurement, listeningContext, includeFaithReflection);
+  const analysis = parseProviderJsonOutput(
+    text,
+    finishReason,
+    value => explanationSchema.safeParse(value),
+    normalizeAnalysisOutput,
+  );
+  try {
+    assertAiInterpretationQuality(analysis, measurement, listeningContext, includeFaithReflection);
+  } catch {
+    throw new ProviderOutputValidationError('quality_invalid');
+  }
   return analysis;
 }
 
@@ -67,11 +79,21 @@ function providerUsageSummary(attempts: ProviderAttempt[]) {
     model: attempt.model,
     inputTokens: attempt.usage?.inputTokens ?? null,
     outputTokens: attempt.usage?.outputTokens ?? null,
+    candidateTokens: attempt.usage?.candidateTokens ?? null,
+    reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+    toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+    reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+    computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+    totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
+    finishReason: attempt.finishReason,
+    outputStatus: attempt.outputStatus,
+    validationFailure: attempt.validationFailure ?? null,
     estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
   }));
   const estimates = providers.map(provider => provider.estimatedCostMicroUsd);
   return {
     providerUsage: providers,
+    usageMetadataMismatch: providers.some(provider => provider.totalTokensMatchBreakdown === false),
     estimatedProviderCostMicroUsd: estimates.every(
       (estimate): estimate is number => estimate !== null,
     )
@@ -88,6 +110,8 @@ export type AiInterpretationRouterOptions = {
   providerFactory?: (input: {
     uid: string;
     prompt: string;
+    openAiPrompt?: string;
+    requestId: string;
     request: {
       measurement: AnalysisMeasurement;
       includeFaithReflection: boolean;
@@ -105,21 +129,28 @@ export function createAiInterpretationRouter(
   const identityMiddleware = options.identityMiddleware ?? requireFirebaseIdentity;
   const ledgerProvider = options.ledgerProvider ?? getCreditLedger;
   const jobStoreProvider = options.jobStoreProvider ?? interpretationJobStore;
-  const providerFactory = options.providerFactory ?? (({ prompt }) => ({
-    gemini: () => generateWithGemini(prompt),
-    openai: () => generateWithOpenAI(prompt),
+  const providerFactory = options.providerFactory ?? (({ prompt, openAiPrompt, requestId }) => ({
+    gemini: () => generateWithGemini(prompt, undefined, {
+      requestId,
+      operation: 'text-interpretation',
+    }),
+    openai: () => generateWithOpenAI(openAiPrompt ?? prompt, undefined, {
+      requestId,
+      operation: 'text-interpretation',
+    }),
   }));
 
 router.get('/ai/interpretation/pricing', (_req, res) => {
   res.set('Cache-Control', 'no-store');
+  const enabled = isAiGenerationEnabled(environment);
   res.json(GetPublicInterpretationPricingResponse.parse({
-    standardCredits: getAIInterpretationPrice(environment)?.credits ?? null,
-    spiritualCredits: getAIInterpretationPrice(environment, true)?.credits ?? null,
+    standardCredits: enabled ? getAIInterpretationPrice(environment)?.credits ?? null : null,
+    spiritualCredits: enabled ? getAIInterpretationPrice(environment, true)?.credits ?? null : null,
     freeLocal: true,
   }));
 });
 
-router.get('/ai/interpretation/quote', identityMiddleware, async (req, res) => {
+router.get('/ai/interpretation/quote', identityMiddleware, requireAiGenerationEnabled(environment), async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const uid = res.locals.firebaseUid;
   if (typeof uid !== 'string' || !uid) {
@@ -249,7 +280,7 @@ router.post('/ai/interpretation/recover', identityMiddleware, async (req, res) =
   }
 });
 
-router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
+router.post('/ai/interpretation', identityMiddleware, requireAiGenerationEnabled(environment), async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const uid = res.locals.firebaseUid;
   if (typeof uid !== 'string' || !uid) {
@@ -461,16 +492,26 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
       request.measurement,
       request.includeFaithReflection,
       request.listeningContext,
+      false,
+    );
+    const openAiPrompt = buildAnalysisPrompt(
+      request.measurement,
+      request.includeFaithReflection,
+      request.listeningContext,
+      true,
     );
     const routed = await runWithGeminiOpenAIFallback(providerFactory({
       uid,
       prompt,
+      openAiPrompt,
+      requestId: String(req.id),
       request,
-    }), text => parseProviderJson(
+    }), (text, output) => parseProviderJson(
       text,
       request.measurement,
       request.listeningContext,
       request.includeFaithReflection,
+      output.finishReason,
     ));
     const analysis = explanationSchema.parse({
       ...routed.analysis,
@@ -494,9 +535,23 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
         model: attempt.model,
         inputTokens: attempt.usage?.inputTokens ?? null,
         outputTokens: attempt.usage?.outputTokens ?? null,
+        candidateTokens: attempt.usage?.candidateTokens ?? null,
+        reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+        toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+        reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+        computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+        totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
         estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
       })),
     });
+    if (routed.attempts.some(attempt => attempt.usage?.totalTokensMatchBreakdown === false)) {
+      req.log.warn({
+        requestId: String(req.id),
+        provider: routed.provider,
+        model: routed.model,
+        usageMetadataMismatch: true,
+      }, 'AI provider aggregate token count does not match its detailed usage breakdown');
+    }
     if (financialAudit.estimatedProviderCostMicroUsd === null) {
       req.log.warn({
         service: financialAudit.service,
@@ -513,11 +568,13 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
     reservationHeld = false;
     await jobs.markSettled(uid, idempotencyKey);
     req.log.info({
+      requestId: String(req.id),
       provider: routed.provider,
       model: routed.model,
       fallbackUsed: routed.fallbackUsed,
       durationMs: Date.now() - startedAt,
       creditsCharged: price.credits,
+      responseStatus: 'validated',
       ...providerUsageSummary(routed.attempts),
     }, 'Frequency interpretation completed');
     res.status(200).json(apiResponse);
@@ -606,7 +663,9 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
     }
     if (error instanceof AIProvidersUnavailableError) {
       req.log.warn({
+        requestId: String(req.id),
         durationMs: Date.now() - startedAt,
+        responseStatus: 'invalid_or_unavailable',
         ...providerUsageSummary(error.attempts),
       }, 'Both AI providers failed validation or availability checks');
       res.status(502).json({
@@ -615,7 +674,11 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
       });
       return;
     }
-    req.log.error({ durationMs: Date.now() - startedAt }, 'Frequency interpretation request failed');
+    req.log.error({
+      requestId: String(req.id),
+      durationMs: Date.now() - startedAt,
+      responseStatus: 'failed',
+    }, 'Frequency interpretation request failed');
     res.status(502).json({
       error: 'ZionCore could not complete this interpretation. Your measurement was not changed.',
       retryable: false,

@@ -142,6 +142,36 @@ test('the complete interpretation quality gate rejects a definitive animal label
   );
 });
 
+test('the quality gate rejects the combined source, harmonic, bioacoustic, and confidence failures seen in live output', () => {
+  let thrown: unknown;
+  try {
+    assertAiInterpretationQuality({
+      executiveSummary: 'This synthetic QA source is near the microphone.',
+      harmonicAnalysis: 'The 880.5 Hz peak is exactly an octave above the fundamental.',
+      candidateExplanations: [{
+        label: 'Owl call',
+        rationale: 'A confident source label.',
+        confidence: 'moderate',
+      }],
+      confidenceScope: 'High confidence that the source is a bird species.',
+    }, {
+      dominantFrequencyHz: 440.625,
+      topPeaksHz: [440.625, 880.5],
+      frequencyResolutionHz: 48000 / 4096,
+    }, 'Synthetic QA test data.');
+  } catch (error) {
+    thrown = error;
+  }
+
+  assert.ok(thrown instanceof AiInterpretationQualityError);
+  assert.deepEqual(new Set(thrown.codes), new Set([
+    'SOURCE_PROXIMITY',
+    'EXACT_HARMONIC_OVERCLAIM',
+    'UNVALIDATED_BIOACOUSTIC_CLASSIFICATION',
+    'CONFIDENCE_SCOPE_OVERCLAIM',
+  ]));
+});
+
 test('spiritual readings cannot assert a verified divine source, audio-based danger, or religious coercion', () => {
   const rejected = [
     {

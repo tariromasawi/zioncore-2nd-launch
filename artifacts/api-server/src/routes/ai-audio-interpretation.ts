@@ -9,6 +9,7 @@ import {
   type AnalysisMeasurement,
   aiInterpretationRequestSchema,
   aiInterpretationResponseSchema,
+  audioSegmentInsightSchema,
   buildAnalysisPrompt,
   explanationSchema,
 } from '@workspace/frequency-ai-contract';
@@ -39,7 +40,14 @@ import {
   assertAiInterpretationQuality,
   assertBioacousticClaimsAreQualified,
 } from '../lib/ai-interpretation-quality';
-import { runWithGeminiOpenAIFallback } from '../lib/ai-provider-router';
+import {
+  parseProviderJsonOutput,
+  ProviderOutputValidationError,
+} from '../lib/provider-output-validation';
+import {
+  AIProvidersUnavailableError,
+  runWithGeminiOpenAIFallback,
+} from '../lib/ai-provider-router';
 import { createAIRequestGuard } from '../lib/ai-request-guard';
 import {
   AiInterpretationJobError,
@@ -51,6 +59,7 @@ import { getFirebaseAdminApp } from '../lib/firebase-admin';
 import { createAiJobFinancialAudit } from '../lib/ai-job-financial-audit';
 import { requireFirebaseIdentity } from '../middlewares/firebase-identity';
 import type { ProviderUsage } from '../lib/ai-provider-router';
+import { requireAiAudioGenerationEnabled } from '../lib/ai-generation-policy';
 
 const router: IRouter = Router();
 const audioRequestGuard = createAIRequestGuard({ cooldownMs: 30_000, maxConcurrent: 2 });
@@ -65,29 +74,21 @@ type AudioSegmentInsight = {
   speechOrEventDetail: string | null;
 };
 
-function parseAudioSegmentInsight(value: unknown): AudioSegmentInsight {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Gemini returned an invalid audio observation.');
+function parseAudioSegmentInsight(text: string, finishReason: string | null | undefined): AudioSegmentInsight {
+  const result = parseProviderJsonOutput(
+    text,
+    finishReason,
+    value => audioSegmentInsightSchema.safeParse(value),
+  );
+  try {
+    assertBioacousticClaimsAreQualified(result);
+  } catch {
+    throw new ProviderOutputValidationError('quality_invalid');
   }
-  const record = value as Record<string, unknown>;
-  if (
-    typeof record.observations !== 'string' ||
-    record.observations.trim().length === 0 ||
-    record.observations.length > 320 ||
-    !(record.speechOrEventDetail === null ||
-      (typeof record.speechOrEventDetail === 'string' && record.speechOrEventDetail.length <= 260)) ||
-    Object.keys(record).some(key => !['observations', 'speechOrEventDetail'].includes(key))
-  ) {
-    throw new Error('Gemini returned an invalid audio observation.');
-  }
-  assertBioacousticClaimsAreQualified({
-    observations: record.observations,
-    speechOrEventDetail: record.speechOrEventDetail,
-  });
   return {
-    observations: record.observations.trim(),
-    speechOrEventDetail: typeof record.speechOrEventDetail === 'string'
-      ? record.speechOrEventDetail.trim() || null
+    observations: result.observations.trim(),
+    speechOrEventDetail: typeof result.speechOrEventDetail === 'string'
+      ? result.speechOrEventDetail.trim() || null
       : null,
   };
 }
@@ -97,13 +98,39 @@ function parseProviderJson(
   measurement: AnalysisMeasurement,
   listeningContext: string,
   includeFaithReflection: boolean,
+  finishReason: string | null | undefined,
 ) {
-  const normalized = text.trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/i, '');
-  const analysis = explanationSchema.parse(normalizeAnalysisOutput(JSON.parse(normalized)));
-  assertAiInterpretationQuality(analysis, measurement, listeningContext, includeFaithReflection);
+  const analysis = parseProviderJsonOutput(
+    text,
+    finishReason,
+    value => explanationSchema.safeParse(value),
+    normalizeAnalysisOutput,
+  );
+  try {
+    assertAiInterpretationQuality(analysis, measurement, listeningContext, includeFaithReflection);
+  } catch {
+    throw new ProviderOutputValidationError('quality_invalid');
+  }
   return analysis;
+}
+
+function safeProviderAttemptLog(error: AIProvidersUnavailableError) {
+  return error.attempts.map(attempt => ({
+    provider: attempt.provider,
+    model: attempt.model,
+    inputTokens: attempt.usage?.inputTokens ?? null,
+    outputTokens: attempt.usage?.outputTokens ?? null,
+    candidateTokens: attempt.usage?.candidateTokens ?? null,
+    reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+    toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+    reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+    computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+    totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
+    finishReason: attempt.finishReason,
+    outputStatus: attempt.outputStatus,
+    validationFailure: attempt.validationFailure ?? null,
+    estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
+  }));
 }
 
 function normalizeBase64Segment(bytes: Buffer) {
@@ -128,6 +155,8 @@ function sleep(milliseconds: number) {
 
 async function reviewAudioSegments(
   segments: ReturnType<typeof inspectAndChunkPcmWav>['segments'],
+  requestId: string,
+  onValidationFailure?: (segmentIndex: number, category: string) => void,
 ): Promise<{ insights: AudioSegmentInsight[]; usage: ProviderUsage[]; model: string; providerAttempts: number }> {
   const insights: AudioSegmentInsight[] = new Array(segments.length);
   const usage: ProviderUsage[] = new Array(segments.length);
@@ -141,37 +170,43 @@ async function reviewAudioSegments(
       const index = nextIndex++;
       const segment = segments[index];
       if (!segment) return;
-    let lastError: unknown;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        providerAttempts += 1;
-        const providerOutput = await generateWithGeminiAudioSegment([
-          'You are ZionCore’s audio-observation instrument. This is one short segment from a user-authorized recording.',
-          'Describe directly audible sound qualities, possible audible events, and speech only if it is genuinely intelligible.',
-          bioacousticEvaluationScope,
-          'Treat source labels as exploratory hypotheses only. If you mention a possible source, qualify it in the same sentence (for example, “possibly consistent with”) and say that it is unverified.',
-          'Do not translate animal communication, infer an animal’s intent, or claim hidden messages, danger, diagnosis, healing, or divine origin.',
-          'Do not guess personal identity or repeat sensitive speech. If speech is unclear, say so. Keep observations concise and evidence-linked.',
-          'Return strict JSON only with exactly these keys: observations (one short description, 1–3 sentences), speechOrEventDetail (a brief non-identifying speech or event detail, or null).',
-          `Segment ${segment.index + 1} of ${segments.length}; duration ${segment.durationSeconds.toFixed(2)} seconds.`,
-        ].join('\n'), normalizeBase64Segment(segment.wav), 12_000);
-        const normalized = providerOutput.text.trim()
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/\s*```$/i, '');
-        const parsed = parseAudioSegmentInsight(JSON.parse(normalized));
-        insights[index] = parsed;
-        usage[index] = providerOutput.usage ?? { inputTokens: null, outputTokens: null };
-        model = providerOutput.model;
-        break;
-      } catch (error) {
-        lastError = error;
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          providerAttempts += 1;
+          const providerOutput = await generateWithGeminiAudioSegment([
+            'You are ZionCore’s audio-observation instrument. This is one short segment from a user-authorized recording.',
+            'Describe directly audible sound qualities, possible audible events, and speech only if it is genuinely intelligible.',
+            bioacousticEvaluationScope,
+            'Treat source labels as exploratory hypotheses only. If you mention a possible source, qualify it in the same sentence (for example, “possibly consistent with”) and say that it is unverified.',
+            'Do not translate animal communication, infer an animal’s intent, or claim hidden messages, danger, diagnosis, healing, or divine origin.',
+            'Do not guess personal identity or repeat sensitive speech. If speech is unclear, say so. Keep observations concise and evidence-linked.',
+            'Return only the JSON object required by the structured response schema supplied with this request. Do not include markdown or text outside the object.',
+            `Segment ${segment.index + 1} of ${segments.length}; duration ${segment.durationSeconds.toFixed(2)} seconds.`,
+          ].join('\n'), normalizeBase64Segment(segment.wav), 12_000, {
+            requestId,
+            operation: `audio-segment-${segment.index + 1}`,
+          });
+          const parsed = parseAudioSegmentInsight(
+            providerOutput.text,
+            providerOutput.finishReason,
+          );
+          insights[index] = parsed;
+          usage[index] = providerOutput.usage ?? { inputTokens: null, outputTokens: null };
+          model = providerOutput.model;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (error instanceof ProviderOutputValidationError) {
+            onValidationFailure?.(segment.index, error.category);
+          }
           if (attempt > 0 || !isRetryableAudioProviderError(error)) {
             segmentFailure = error;
             throw error;
           }
-        await sleep(500 * (2 ** attempt));
+          await sleep(500 * (2 ** attempt));
+        }
       }
-    }
       if (!insights[index]) {
         segmentFailure = lastError ?? new Error('A Gemini audio segment was not completed.');
         throw segmentFailure;
@@ -199,13 +234,27 @@ function summarizeAudioReview(insights: AudioSegmentInsight[]) {
 }
 
 function totalUsage(usage: ProviderUsage[]) {
-  const sum = (key: 'inputTokens' | 'outputTokens') => {
+  const sum = (key: 'inputTokens' | 'outputTokens' | 'candidateTokens' | 'reasoningTokens' | 'toolUsePromptTokens' | 'reportedTotalTokens' | 'computedTotalTokens') => {
     const values = usage.map(item => item[key]);
     return values.every((value): value is number => typeof value === 'number')
       ? values.reduce((total, value) => total + value, 0)
       : null;
   };
-  return { inputTokens: sum('inputTokens'), outputTokens: sum('outputTokens') };
+  const reconciliation = usage.map(item => item.totalTokensMatchBreakdown);
+  return {
+    inputTokens: sum('inputTokens'),
+    outputTokens: sum('outputTokens'),
+    candidateTokens: sum('candidateTokens'),
+    reasoningTokens: sum('reasoningTokens'),
+    toolUsePromptTokens: sum('toolUsePromptTokens'),
+    reportedTotalTokens: sum('reportedTotalTokens'),
+    computedTotalTokens: sum('computedTotalTokens'),
+    totalTokensMatchBreakdown: reconciliation.every(
+      (value): value is boolean => typeof value === 'boolean',
+    )
+      ? reconciliation.every(Boolean)
+      : null,
+  };
 }
 
 function audioJsonParser(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -230,7 +279,7 @@ function getJobs() {
   return createAiInterpretationJobStore(getFirestore(getFirebaseAdminApp()));
 }
 
-router.get('/ai/interpretation/audio-quote', requireFirebaseIdentity, async (req, res): Promise<void> => {
+router.get('/ai/interpretation/audio-quote', requireFirebaseIdentity, requireAiAudioGenerationEnabled(), async (req, res): Promise<void> => {
   res.set('Cache-Control', 'private, no-store');
   const uid = res.locals.firebaseUid;
   if (typeof uid !== 'string' || !uid) {
@@ -287,6 +336,7 @@ router.get('/ai/interpretation/audio-quote', requireFirebaseIdentity, async (req
 router.post(
   '/ai/interpretation/audio',
   requireFirebaseIdentity,
+  requireAiAudioGenerationEnabled(),
   audioJsonParser,
   async (req, res): Promise<void> => {
     res.set('Cache-Control', 'private, no-store');
@@ -490,7 +540,16 @@ router.post(
       }
       reservationHeld = true;
 
-      const audioReviewResult = await reviewAudioSegments(inspected.segments);
+      const requestId = String(req.id);
+      const audioReviewResult = await reviewAudioSegments(
+        inspected.segments,
+        requestId,
+        (segmentIndex, category) => req.log.warn({
+          requestId,
+          operation: `audio-segment-${segmentIndex + 1}`,
+          validationFailure: category,
+        }, 'Gemini audio segment output failed validation'),
+      );
       const audioReview = {
         provider: 'gemini' as const,
         model: audioReviewResult.model,
@@ -502,6 +561,20 @@ router.post(
           interpretation.data.measurement,
           interpretation.data.includeFaithReflection,
           interpretation.data.listeningContext,
+          false,
+        ),
+        'The following additional descriptions were generated by Gemini from the user-consented raw WAV in short segments.',
+        'Treat them as fallible model observations, not independently verified labels. Reconcile them with the local numeric measurements; explain disagreement and uncertainty.',
+        bioacousticEvaluationScope,
+        'Do not present a species or behavior classification as supported; any source suggestion must be clearly marked as an unverified hypothesis. Never translate animal communication or infer an animal’s intent.',
+        `Segment observations:\n${audioReview.summary}`,
+      ].join('\n\n');
+      const openAiPrompt = [
+        buildAnalysisPrompt(
+          interpretation.data.measurement,
+          interpretation.data.includeFaithReflection,
+          interpretation.data.listeningContext,
+          true,
         ),
         'The following additional descriptions were generated by Gemini from the user-consented raw WAV in short segments.',
         'Treat them as fallible model observations, not independently verified labels. Reconcile them with the local numeric measurements; explain disagreement and uncertainty.',
@@ -510,13 +583,20 @@ router.post(
         `Segment observations:\n${audioReview.summary}`,
       ].join('\n\n');
       const routed = await runWithGeminiOpenAIFallback({
-        gemini: () => generateWithGemini(prompt, 30_000),
-        openai: () => generateWithOpenAI(prompt, 30_000),
-      }, text => parseProviderJson(
+        gemini: () => generateWithGemini(prompt, 30_000, {
+          requestId,
+          operation: 'audio-interpretation-summary',
+        }),
+        openai: () => generateWithOpenAI(openAiPrompt, 30_000, {
+          requestId,
+          operation: 'audio-interpretation-summary',
+        }),
+      }, (text, output) => parseProviderJson(
         text,
         interpretation.data.measurement,
         interpretation.data.listeningContext,
         interpretation.data.includeFaithReflection,
+        output.finishReason,
       ));
       const analysis = explanationSchema.parse({
         ...routed.analysis,
@@ -541,6 +621,12 @@ router.post(
             model: audioReviewResult.model,
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
+            candidateTokens: usage.candidateTokens ?? null,
+            reasoningTokens: usage.reasoningTokens ?? null,
+            toolUsePromptTokens: usage.toolUsePromptTokens ?? null,
+            reportedTotalTokens: usage.reportedTotalTokens ?? null,
+            computedTotalTokens: usage.computedTotalTokens ?? null,
+            totalTokensMatchBreakdown: usage.totalTokensMatchBreakdown ?? null,
             estimatedCostMicroUsd: estimateGeminiAudioUsageMicroUsd(audioReviewResult.model, usage),
           })),
           ...routed.attempts.map(attempt => ({
@@ -548,6 +634,12 @@ router.post(
             model: attempt.model,
             inputTokens: attempt.usage?.inputTokens ?? null,
             outputTokens: attempt.usage?.outputTokens ?? null,
+            candidateTokens: attempt.usage?.candidateTokens ?? null,
+            reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+            toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+            reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+            computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+            totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
             estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
           })),
         ],
@@ -569,6 +661,7 @@ router.post(
       reservationHeld = false;
       await jobs.markSettled(uid, idempotencyKey);
       req.log.info({
+        requestId,
         provider: routed.provider,
         model: routed.model,
         audioProvider: 'gemini',
@@ -585,11 +678,25 @@ router.post(
           : 'At least one retry had no provider usage metadata; this estimate is omitted to avoid undercounting.',
         durationMs: Date.now() - startedAt,
         creditsCharged: price.credits,
+        responseStatus: 'validated',
+        usageMetadataMismatch: [
+          ...audioReviewResult.usage,
+          ...routed.attempts.map(attempt => attempt.usage).filter((value): value is ProviderUsage => Boolean(value)),
+        ].some(usage => usage.totalTokensMatchBreakdown === false),
         providerUsage: routed.attempts.map(attempt => ({
           provider: attempt.provider,
           model: attempt.model,
           inputTokens: attempt.usage?.inputTokens ?? null,
           outputTokens: attempt.usage?.outputTokens ?? null,
+          candidateTokens: attempt.usage?.candidateTokens ?? null,
+          reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+          toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+          reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+          computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+          totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
+          finishReason: attempt.finishReason,
+          outputStatus: attempt.outputStatus,
+          validationFailure: attempt.validationFailure ?? null,
           estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
         })),
       }, 'Opt-in audio interpretation completed');
@@ -664,8 +771,14 @@ router.post(
         res.status(503).json({ error: 'The completed audio reading is saved. Retry this same request to confirm billing.', retryable: true });
         return;
       }
+      const providerFailureDetails = error instanceof AIProvidersUnavailableError
+        ? { providerAttempts: safeProviderAttemptLog(error) }
+        : error instanceof ProviderOutputValidationError
+          ? { validationFailure: error.category }
+          : { errorName: error instanceof Error ? error.name : 'UnknownError' };
       req.log.warn({
-        err: error,
+        requestId: String(req.id),
+        ...providerFailureDetails,
         durationMs: Date.now() - startedAt,
         audioChunks: inspected.segments.length,
       }, 'Opt-in audio interpretation failed; the credit reservation was released');

@@ -15,7 +15,7 @@ import {
 } from '../lib/owner-dashboard-data';
 import { getCheckoutMode, isCheckoutEnabled } from '../lib/billing-catalog';
 import { getStripeWebhookSecret, getUncachableStripeClient } from '../lib/stripe-client';
-import { isGeminiConfigured } from '../lib/ai-provider-clients';
+import { isGeminiConfigured, isOpenAIConfigured } from '../lib/ai-provider-clients';
 import { requireFirebaseOwner } from '../middlewares/firebase-identity';
 
 const router = Router();
@@ -283,7 +283,7 @@ router.get('/owner/summary', ...requireFirebaseOwner, async (req, res): Promise<
     },
     providers: {
       geminiConfigured: isGeminiConfigured(),
-      openaiConfigured: Boolean(process.env.AI_INTEGRATIONS_OPENAI_API_KEY),
+      openaiConfigured: isOpenAIConfigured(),
       configurationOnly: true,
     },
     ...stripeSnapshot,

@@ -1,5 +1,48 @@
+import { randomUUID } from 'node:crypto';
+import { logger } from './logger';
+
 export const PROVIDER_ATTEMPT_TIMEOUT_MS = 120_000;
 export const MAX_PROVIDER_RESPONSE_CHARACTERS = 262_144;
+
+export type ProviderUsageSummary = {
+  inputTokens: number | null;
+  outputTokens: number | null;
+  candidateTokens?: number | null;
+  reasoningTokens?: number | null;
+  toolUsePromptTokens?: number | null;
+  reportedTotalTokens?: number | null;
+  computedTotalTokens?: number | null;
+  totalTokensMatchBreakdown?: boolean | null;
+};
+
+export type ProviderAttemptTelemetry = {
+  requestId?: string;
+  provider?: string;
+  model?: string;
+  operation?: string;
+  usageOf?: (result: unknown) => ProviderUsageSummary | null | undefined;
+  finishReasonOf?: (result: unknown) => string | null | undefined;
+  onEvent?: (event: ProviderAttemptEvent) => void;
+};
+
+export type ProviderAttemptEvent = {
+  event: 'started' | 'succeeded' | 'failed';
+  requestId: string;
+  attemptId: string;
+  provider?: string;
+  model?: string;
+  operation?: string;
+  startedAt: string;
+  timestamp: string;
+  durationMs?: number;
+  timeoutMs: number;
+  usage?: ProviderUsageSummary | null;
+  finishReason?: string | null;
+  timedOut?: boolean;
+  errorName?: string;
+  errorCode?: string;
+  errorStatus?: number;
+};
 
 export class ProviderTimeoutError extends Error {
   readonly code = 'ETIMEDOUT';
@@ -21,8 +64,44 @@ export class ProviderResponseLimitError extends Error {
 export async function withProviderDeadline<T>(
   operation: (signal: AbortSignal) => Promise<T>,
   timeoutMs = PROVIDER_ATTEMPT_TIMEOUT_MS,
+  telemetry: ProviderAttemptTelemetry = {},
 ): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('A finite positive provider deadline is required.');
+  const startedAtMs = Date.now();
+  const startedAt = new Date(startedAtMs).toISOString();
+  const base = {
+    requestId: telemetry.requestId?.trim() || randomUUID(),
+    attemptId: randomUUID(),
+    provider: telemetry.provider,
+    model: telemetry.model,
+    operation: telemetry.operation,
+    startedAt,
+    timeoutMs,
+  };
+  const emit = (event: ProviderAttemptEvent['event'], fields: Partial<ProviderAttemptEvent> = {}) => {
+    const entry: ProviderAttemptEvent = {
+      event,
+      ...base,
+      timestamp: new Date().toISOString(),
+      ...fields,
+    };
+    try {
+      if (event === 'failed') {
+        logger.warn(entry, 'AI provider attempt failed');
+      } else {
+        logger.info(entry, `AI provider attempt ${event}`);
+      }
+    } catch {
+      // Logging failures must never change provider behavior.
+    }
+    try {
+      telemetry.onEvent?.(entry);
+    } catch {
+      // Diagnostics must never change provider behavior.
+    }
+  };
+  emit('started');
+
   const controller = new AbortController();
   const deadlineError = new ProviderTimeoutError();
   let timedOut = false;
@@ -35,10 +114,49 @@ export async function withProviderDeadline<T>(
     }, timeoutMs);
   });
   try {
-    return await Promise.race([Promise.resolve().then(() => operation(controller.signal)), deadline]);
+    const result = await Promise.race([Promise.resolve().then(() => operation(controller.signal)), deadline]);
+    let usage: ProviderUsageSummary | null | undefined;
+    try {
+      usage = telemetry.usageOf?.(result);
+    } catch {
+      usage = null;
+    }
+    let finishReason: string | null = null;
+    try {
+      const candidate = telemetry.finishReasonOf?.(result);
+      finishReason = typeof candidate === 'string' &&
+        /^[A-Za-z0-9_-]{1,48}$/.test(candidate)
+        ? candidate
+        : null;
+    } catch {
+      finishReason = null;
+    }
+    emit('succeeded', {
+      durationMs: Date.now() - startedAtMs,
+      usage: usage ?? null,
+      finishReason,
+    });
+    return result;
   } catch (cause) {
     controller.abort(cause);
-    throw timedOut ? deadlineError : cause;
+    const error = timedOut ? deadlineError : cause;
+    const record = error && typeof error === 'object' ? error as Record<string, unknown> : {};
+    const response = record.response && typeof record.response === 'object'
+      ? record.response as Record<string, unknown>
+      : undefined;
+    const status = record.status ?? record.statusCode ?? response?.status;
+    const errorCode = typeof record.code === 'string' &&
+      /^[A-Za-z0-9_-]{1,64}$/.test(record.code)
+      ? record.code
+      : undefined;
+    emit('failed', {
+      durationMs: Date.now() - startedAtMs,
+      timedOut: timedOut || error instanceof ProviderTimeoutError,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+      errorCode,
+      errorStatus: typeof status === 'number' ? status : undefined,
+    });
+    throw error;
   } finally {
     clearTimeout(timer);
   }

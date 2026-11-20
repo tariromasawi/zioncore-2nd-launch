@@ -10,15 +10,11 @@ function isRecord(value: unknown): value is JsonRecord {
 function normalizeConfidence(value: unknown): unknown {
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
-    const match = confidenceValues.find(option => normalized === option || normalized.includes(option));
+    const match = confidenceValues.find(option => normalized === option);
     return match ?? value;
   }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const normalized = value > 1 ? value / 100 : value;
-    if (normalized >= 0.7) return 'high';
-    if (normalized >= 0.4) return 'moderate';
-    return 'low';
-  }
+  // Do not turn an uncalibrated model number into a qualitative category.
+  // The schema rejects numeric confidence instead of implying calibration.
   return value;
 }
 

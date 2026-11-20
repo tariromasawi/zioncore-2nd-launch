@@ -129,7 +129,7 @@ export const GetOwnerFirebaseDiagnosticsResponse = zod.object({
   "generatedAt": zod.coerce.date(),
   "runtimeEnvironment": zod.enum(['development', 'production', 'other']),
   "credential": zod.object({
-  "source": zod.enum(['FIREBASE_SERVICE_ACCOUNT_JSON']),
+  "source": zod.enum(['FIREBASE_SERVICE_ACCOUNT_JSON', 'CLOUD_RUN_APPLICATION_DEFAULT_CREDENTIALS']),
   "serviceAccountEmail": zod.string().nullable(),
   "projectId": zod.string().nullable(),
   "databaseId": zod.string(),

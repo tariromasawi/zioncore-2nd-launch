@@ -146,7 +146,7 @@ test('curated Genesis operational modules stay separate from a bounded provider 
 });
 
 test('requests reflection separately and identifies the documented model', () => {
-  assert.match(buildSharedAnalysisPrompt(measurement, true), /3–5 substantial personalized paragraphs/);
+  assert.match(buildSharedAnalysisPrompt(measurement, true), /Write faithReflection as 3–5 personalized paragraphs/);
   assert.equal(FREQUENCY_EXPLANATION_MODEL, 'gemini-3.8-flash');
 });
 
@@ -159,30 +159,19 @@ test('asks for an in-depth, five-lens report and includes only context the user 
 
   assert.match(prompt, /1,800–2,400 words/);
   assert.match(prompt, /acoustics, signal processing, mathematics\/statistics, communications, and environmental\/bioacoustics/);
-  assert.match(prompt, /supporting evidence, evidence against or missing/);
+  assert.match(prompt, /with evidence for and against, qualitative confidence, and the best discriminating observation/);
   assert.match(prompt, /A steady tone appeared after sunset/);
-  assert.match(prompt, /Do not dismiss or argue against the user’s stated belief/);
-  assert.match(prompt, /never demean, rank, proselytize, pressure, or stereotype a faith tradition/i);
-  assert.match(prompt, /Attribute beliefs the user explicitly shares to the user/);
-  assert.match(prompt, /confidenceScope must explicitly limit confidence to the measured pattern or data quality/);
-  assert.match(prompt, /do not infer the user’s religion/);
-  assert.match(prompt, /Never substitute a verse for the personalized reading/);
-  assert.match(prompt, /Frequency analysis is the primary purpose/);
-  assert.match(prompt, /Write faithReflection as 3–5 substantial personalized paragraphs/);
-  assert.match(prompt, /future dedicated frequency receiver/);
-  assert.match(prompt, /bird vocalization or chorus, amphibian chorus, walrus haulout vocalization/);
-  assert.match(prompt, /class precision and recall are unknown/);
-  assert.match(prompt, /explicitly labeled as an unverified hypothesis in the same sentence, with low confidence/);
-  assert.match(prompt, /electromagnetism, wave physics, quantum physics/);
-  assert.match(prompt, /Shona spiritual traditions, comparative religion/);
-  assert.match(prompt, /if context identifies synthetic, test, or QA data, describe it as synthetic throughout/);
-  assert.match(prompt, /Peak-to-median contrast is not SNR/);
-  assert.match(prompt, /Correlations and principal-variance shares describe co-variation/);
-  assert.match(prompt, /Do not claim absence of aliasing, modulation, or encoded data/);
-  assert.match(prompt, /RMS is relative digital amplitude, not measured air pressure or loudness/);
-  assert.match(prompt, /440\.625 Hz doubled is 881\.25 Hz/);
-  assert.match(prompt, /Never repeat internal genesis-seed text, creator attribution, or project-owner details/);
-  assert.match(prompt, /Do not invent or overstate cultural or religious doctrines/);
+  assert.match(prompt, /respect the user-selected tradition without assuming belief, dismissing, ranking, pressuring, or proselytizing/i);
+  assert.match(prompt, /divine or symbolic meaning as personal interpretation, not instrument evidence or verified revelation/i);
+  assert.match(prompt, /Limit confidenceScope to the measured pattern or data quality/i);
+  assert.match(prompt, /Scope: this is user-authorized microphone capture with structured features/i);
+  assert.match(prompt, /If context identifies synthetic, test, or QA data, label it synthetic throughout/i);
+  assert.match(prompt, /peak-to-median contrast is not calibrated SNR or noise floor/i);
+  assert.match(prompt, /Correlation is co-variation, not causation/i);
+  assert.match(prompt, /Do not claim modulation, aliasing, or encoding is absent/i);
+  assert.match(prompt, /Any non-zero harmonic difference is not exact/i);
+  assert.match(prompt, /Do not repeat private Genesis, founder, or listener details/i);
+  assert.match(prompt, /do not overstate cultural or religious doctrine/i);
   assert.equal(MAX_ANALYSIS_OUTPUT_TOKENS, 8192);
 });
 

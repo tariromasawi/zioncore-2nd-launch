@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
@@ -18,6 +19,11 @@ const allowedCorsOrigins = parseAllowedCorsOrigins(
 app.use(
   pinoHttp({
     logger,
+    genReqId(_req, res) {
+      const requestId = randomUUID();
+      res.setHeader("x-request-id", requestId);
+      return requestId;
+    },
     serializers: {
       req(req) {
         return {
@@ -64,6 +70,7 @@ app.post(
 
 app.use(
   cors({
+    exposedHeaders: ["x-request-id"],
     origin(origin, callback) {
       callback(null, isAllowedCorsOrigin(origin, allowedCorsOrigins));
     },

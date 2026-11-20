@@ -7,16 +7,21 @@
   initial root commit is a clean export from private source commit
   `ee647e19e3c01e5622394f09d90b5503d4943e0c`; no private Git history was copied.
   Original-workspace byte-for-byte parity remains unverified.
-- The repository now contains 609 tracked files. `SOURCE_INVENTORY.sha256`
-  records 608 tracked-file checksums; CI verifies the manifest after every push.
+- The repository contains 617 tracked files on the current deployment branch.
+  `SOURCE_INVENTORY.sha256` records checksums for the 616 other tracked files; CI verifies the manifest after
+  every push.
 - The Phase 1 source baseline and file-comparison findings are recorded in
   `docs/ZIONCORE-2ND-PHASE-1-SOURCE-BASELINE.md`.
 - The GitHub Actions validation workflow runs typecheck, web and API tests,
   Firebase emulator checks, source-inventory verification, and web/API
-  production builds. The landing-page and standalone-origin changes passed the
-  full local release gate and GitHub Actions run
-  `44333293318` for source commit
-  `53f76547f4b23aa83ed2b9235fd4e4603dc4d797`.
+  production builds. Current workflow commit
+  `00c1fe8c158b9dadf60d05f9806804151fcceb78` passed both push run
+  `44576648512` and pull-request run `44576662852`, including locked install,
+  integrity, typecheck, unit/emulator tests and builds. Actions were updated to
+  current runtime versions; the previous Node 20 deprecation warnings are no
+  longer present in these runs. Earlier structured-output and baseline commits
+  also passed their recorded CI runs. PR #1 remains open, unmerged and
+  mergeable.
 - A clean production-mode build after deferring optional lab visuals measured
   196,474 gzip bytes for the initial JavaScript, below the 200,000-byte budget.
 - The complete standalone application source is present in
@@ -41,7 +46,7 @@
   authenticated own-record write/read with a valid development App Check token;
   a matching authenticated REST read without App Check was rejected. The test
   account and record were deleted. Identity Toolkit enforcement remains off.
-- Local checks passed: web unit tests 426/426; API unit tests 108/108; web and
+- Latest local checks passed: web unit tests 426/426; API unit tests 127/127; web and
   API typechecks; web and API production builds; wallet/ledger/Stripe emulator
   integration tests 20/20.
 - Firebase Authentication emulator tests passed 3/3 for registration,
@@ -57,6 +62,137 @@
   selected runtime source.
 - The main ZionCore Firebase project and production application were not
   changed.
+- A manual-only GitHub deployment workflow, Firebase Hosting SPA/API rewrite,
+  Cloud Run container definition, and ADC runtime path are prepared on the
+  deployment branch. They have not been deployed or run against Google Cloud.
+- The deployment workflow keeps checkout, premium access, paid AI usage,
+  Firestore client access, and AI project-security approval disabled by default.
+
+## Independent deployment status
+
+- Target repository: `https://github.com/tariromasawi/zioncore-2nd-launch`
+- Target Firebase project: `zioncore-2nd-production` (`225578874852`)
+- Intended web origin: `https://zioncore-2nd-production.web.app` (not live;
+  returned HTTP 404 at the last check)
+- Intended API: Cloud Run service `zioncore-2nd-api` in `europe-west2`
+- The workflow is manual-only, requires a typed deployment confirmation and
+  must be run from `main`. No Cloud Run or Hosting release was started from the
+  fork.
+- The GitHub production environment now has an owner reviewer and a `main`-only
+  branch policy. WIF is restricted to this repository's manual deployment
+  workflow on `main`; dedicated deployer/runtime identities and their scoped
+  project/resource permissions are configured.
+- Firebase public API and App Check site keys are stored as GitHub environment
+  variables, not committed to source. The production App ID matches the
+  registered App Check configuration, and the reCAPTCHA key allows only the
+  Firebase Hosting domains. Production-host token exchange remains unverified
+  because the site has not been deployed.
+- Gemini production no longer depends on a Secret Manager key. The Cloud Run
+  runtime uses Vertex AI through ADC; the unused Gemini secret resource remains
+  empty and the runtime has no access to it. OpenAI remains optional and needs
+  an enabled secret version only if that fallback is configured.
+- Cloud Run, Cloud Build, and Firebase Hosting APIs are enabled. The Cloud
+   Billing and Billing Budgets APIs are enabled for inspection; the project
+   reports an attached billing account. A project-scoped £1 monthly alert-only
+   budget was created with 25%, 50%, 90%, 100% current and 100% forecast
+   thresholds. No hard spending cap, billing attachment, or payment setting was
+   changed. Google and Apple
+  sign-in remain disabled; browser Firestore access and paid features remain
+  fail-closed.
+- Vertex AI (`aiplatform.googleapis.com`) is enabled and the dedicated runtime
+  account has `roles/aiplatform.user`. Using a short-lived impersonated token for
+  that runtime identity, the `@google/genai` SDK successfully counted text and
+  synthetic WAV tokens for `gemini-3.8-flash` in the EU multi-region. Google
+  documents CountTokens as non-billable. This verifies IAM, model/location, and
+  text/audio request formats; Cloud Run's metadata-based ADC and billable
+  generation/streaming remain unverified.
+- The first capped text/audio batch timed out at the outer five-minute tool
+  deadline without per-request diagnostics. In the later authorized controlled
+  retry, one genuine Gemini text stream completed in 2,231 ms but failed strict
+  JSON validation. Its correlation ID was
+  `b19a0b59-5aea-433e-b106-cac44ff60613`; the one-off harness did not retain the
+  exact HTTP status or returned token-usage metadata after the parse failure.
+  CountTokens measured 15 text input tokens. The 32-output-token cap gives a
+  conservative single-call estimate of $0.000350 USD; the earlier combined
+  planning estimate using a 26-token audio preflight was $0.000722 USD. Actual
+  usage and cost remain unknown. The audio request was skipped because Test A
+  did not pass; no automatic retry or further generation was made. The
+  temporary runtime-scoped Token Creator binding was removed and independently
+  verified absent. Cloud Logging and inspected Vertex metrics had no matching
+  records, and the quota query returned no model-specific numeric effective
+  limit. Billable generation is not verified end to end.
+- The earlier direct test harness did not retain exact response status or token
+  usage after parsing failed; that historical information cannot be
+  reconstructed. Application-route diagnostics have since been updated to
+  retain provider usage and finish reasons before validation, with categorized
+  validation failures and no prompt, audio, credentials, or response-body
+  logging. No additional live generation was run.
+- The deployment container was not built locally and the workflow was not run;
+  local validation can verify source/build behavior but cannot prove Cloud
+  Build, Firebase Hosting, App Check, or production AI operation.
+
+## Gemini structured-output correction — 19 November 2026
+
+- The prior authorized one-off text request used a 32-token output cap for a
+  response contract with 17 required top-level fields and a requested
+  1,800–2,400-word report. That cap cannot satisfy the contract. The test
+  harness did not retain the model finish reason or usage after parsing failed,
+  so the precise reason for that historical response failure cannot be proven.
+- The production application uses an 8,192-token output cap; it was not using
+  the test's 32-token cap. Before this correction its Gemini requests asked for
+  JSON MIME output but did not send the response schema, leaving strict Zod
+  validation as a post-generation check.
+- The deployment branch now sends Gemini structured-output schemas for both
+  full interpretations and short audio-segment observations. The schemas are
+  derived from the existing Zod contracts, filtered to Vertex's documented
+  supported fields, and still receive full server-side Zod and quality
+  validation afterward. The Gemini prompt no longer repeats the response
+  schema; the OpenAI fallback retains its explicit JSON-shape instructions.
+- Provider telemetry now retains a sanitized finish reason alongside
+  correlation/attempt IDs, timestamps, duration, provider/model, and returned
+  usage. Validation failures are categorized as empty, incomplete, malformed
+  JSON, schema-invalid, or quality-invalid without logging prompts, audio, or
+  generated response text. Audio segment validation failures are logged with
+  only the segment operation and category.
+- Local synthetic and mocked regression tests cover schema compatibility,
+  streamed text assembly, truncation classification, schema/quality failure
+  categories, safe telemetry, and both Gemini response shapes. No billable
+  generation was retried; live model generation remains unverified until a
+  separately authorized bounded test.
+- Reference: [Vertex AI structured output](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/control-generated-output).
+
+## Public repository security and privacy review — 19 November 2026
+
+- GitHub reports this repository as public. Secret scanning and push protection
+  are enabled. The open and resolved secret-alert queries both returned zero
+  alerts.
+- A targeted high-confidence credential-pattern scan across reachable Git
+  history found no private-key headers, cloud access keys, GitHub tokens,
+  OpenAI/Stripe secrets, webhook secrets, Slack tokens, or Google API-key
+  patterns. The only credential-style tracked files are the two `.env.example`
+  templates. This targeted scan is not a security certification.
+- No code-scanning analysis is configured; GitHub returned `no analysis found`.
+  The Replit SAST and privacy scanners in this workspace scan the main workspace
+  root, not this nested ZionCore 2nd worktree, so their results are not claimed
+  as scans of this public repository.
+- The byte-preserved Genesis source contains owner-provided family/devotional
+  names. It remains unchanged as required; public disclosure of that material
+  is a residual privacy consideration. No source or Git history was rewritten.
+
+## Dependency advisory status
+
+- `pnpm audit --prod` reports no known vulnerabilities in production
+  dependencies.
+- The full development dependency audit reports three moderate advisories
+  inside the Firebase CLI (`firebase-tools@15.36.0`) development dependency
+  tree: `glob@10.5.0`, `minimatch@9.0.9`, and `@opentelemetry/core@1.30.1`.
+  Registry metadata reports `firebase-tools@15.37.0` as the latest release, but
+  the package manager's minimum-release-age policy rejected it as too recent on
+  19 November 2026. The policy was not bypassed. A blanket major override could
+  break the deployment/emulator CLI, so no unverified override was applied.
+- GitHub currently lists a high-severity `picomatch@4.0.7` alert on the default
+  branch, but the advisory is marked withdrawn and is absent from the local npm
+  audit result. GitHub also reports the three moderate development-tree alerts.
 
 ## Historical hosting and source-visibility note
 

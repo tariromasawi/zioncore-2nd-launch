@@ -1,18 +1,22 @@
 import OpenAI from "openai";
 
-if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+const directApiKey = process.env.OPENAI_API_KEY?.trim();
+const integrationApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY?.trim();
+const integrationBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim();
+const apiKey = directApiKey || integrationApiKey;
+
+if (!apiKey) {
   throw new Error(
-    "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?",
+    "Configure OPENAI_API_KEY or the OpenAI AI integration before using OpenAI.",
   );
 }
-
-if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+if (!directApiKey && !integrationBaseUrl) {
   throw new Error(
-    "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?",
+    "AI_INTEGRATIONS_OPENAI_BASE_URL is required when using the Replit OpenAI integration.",
   );
 }
 
 export const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey,
+  ...(directApiKey ? {} : { baseURL: integrationBaseUrl }),
 });
