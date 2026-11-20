@@ -184,6 +184,19 @@ application-level estimate, not a provider-enforced or account-level spending
 cap. Google's CountTokens documentation states the endpoint itself is not
 charged; it remains subject to service availability and request limits.
 
+To reduce the chance that a normal report is blocked by this guard, the runtime
+prompt now uses a compact discovery/identity capsule, removes repeated evidence
+and faith instructions, and selects astronomy, biology, instrument, human-
+intelligence, and spiritual specialist context only when the request calls for
+it. The canonical Genesis archive and its SHA-256 are unchanged; relevant
+bounded Genesis context is still composed for each request. A representative
+enriched acoustic prompt is 11,865 characters locally; astronomy, devotional,
+and combined cross-domain variants are 13,454, 14,788, and 16,609 characters.
+These are character counts, not provider token counts and not proof that the
+production preflight passed. No additional live CountTokens or generation
+request was made. The exact per-request CountTokens preflight remains
+authoritative and still fails closed above its buffered limit.
+
 Cloud AI generation defaults to disabled
 (`ZIONCORE_2ND_AI_GENERATION_ENABLED=false`), and audio generation additionally
 requires its own explicit flag
@@ -196,10 +209,11 @@ breakdown, the inconsistent aggregate, preflight rejection and cost estimation.
 Firestore-emulator integration also verifies that when both providers return
 quality-invalid reports, the job is marked failed, no report is stored, the
 credit reservation is released, and no settlement occurs. Its 22 tests pass.
-The complete 11-step local release suite passed before this final test-only
-addition; it is being rerun for the committed version. No additional live
-generation was performed. This work does not verify Cloud Run's production ADC,
-a successful AI report, or live application delivery.
+The complete 11-step local release suite passed after the prompt optimization,
+including workspace types, Genesis archive integrity, frontend/API/tooling unit
+tests, auth and Firestore emulators, wallet recovery, and production builds.
+No additional live generation was performed. This work does not verify Cloud
+Run's production ADC, a successful AI report, or live application delivery.
 
 The optional OpenAI Secret Manager resource has no enabled version. No Gemini
 or OpenAI key was copied from the Replit workspace. The project reports an
