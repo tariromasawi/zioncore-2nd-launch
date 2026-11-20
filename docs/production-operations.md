@@ -14,8 +14,10 @@ The GitHub deployment workflow is manual-only and runs only from `main` after
 the explicit deployment confirmation. It is not run by this source change.
 The `zioncore-2nd-production` GitHub environment is now configured with a
 required review from the repository owner and a `main`-only deployment branch
-policy. The GitHub Actions variables below were set from the verified Firebase
-project configuration:
+policy. The `main` branch also requires pull requests, one approval, a passing
+`validate` check, resolved review conversations, and administrator enforcement;
+force pushes and branch deletion are disabled. The GitHub Actions variables
+below were set from the verified Firebase project configuration:
 
 - `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_DEPLOYER_SERVICE_ACCOUNT` for
   GitHub-to-Google Workload Identity Federation.
