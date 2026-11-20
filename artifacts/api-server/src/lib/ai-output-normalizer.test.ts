@@ -26,8 +26,8 @@ test('normalizes common model formatting drift without discarding useful prose',
       evidenceBoundary: 'This is limited to the supplied derived features.',
     })),
     keyTakeaways: ['One', 'Two', 'Three'],
-    confidence: 0.91,
-    confidenceScope: 'Confidence applies to the measured pattern only.',
+    confidence: 'high',
+    confidenceScope: 'Confidence applies to the measured pattern only; source and cause remain unknown.',
     uncertainty: 'The source is not known.',
     dataQuality: 'The synthetic test signal has clear peaks.',
     candidateExplanations: [{
@@ -35,7 +35,7 @@ test('normalizes common model formatting drift without discarding useful prose',
       rationale: 'The peak is stable.',
       evidenceFor: ['A stable dominant peak.', 'Harmonic spacing.'],
       evidenceAgainst: ['No source recording is available.'],
-      confidence: 0.84,
+      confidence: 'low',
       whatWouldDiscriminate: 'Record a matched source reference.',
     }],
     followUpExperiments: [
@@ -59,6 +59,21 @@ test('normalizes common model formatting drift without discarding useful prose',
   assert.equal(result.data.domainPerspectives[0]?.relevance, 'direct');
   assert.match(result.data.domainPerspectives[0]?.analysis ?? '', /Evaluates physical wave propagation/);
   assert.match(result.data.candidateExplanations[0]?.evidenceFor ?? '', /Harmonic spacing/);
+});
+
+test('does not convert uncalibrated numeric confidence into a qualitative or calibrated result', () => {
+  const normalized = normalizeAnalysisOutput({
+    confidence: 0.91,
+    candidateExplanations: [{ confidence: 91 }],
+  }) as { confidence: unknown; candidateExplanations: Array<{ confidence: unknown }> };
+  assert.equal(normalized.confidence, 0.91);
+  assert.equal(normalized.candidateExplanations[0]?.confidence, 91);
+  assert.equal(explanationSchema.shape.confidence.safeParse(normalized.confidence).success, false);
+  assert.equal(
+    explanationSchema.shape.candidateExplanations.element.shape.confidence
+      .safeParse(normalized.candidateExplanations[0]?.confidence).success,
+    false,
+  );
 });
 
 test('interpretation quality checks block unsupported acoustic claims and internal attribution', () => {
@@ -85,6 +100,15 @@ test('interpretation quality checks block unsupported acoustic claims and intern
     syntheticContext,
     true,
   ));
+  assert.doesNotThrow(() => assertAiInterpretationQuality(
+    { harmonicAnalysis: 'This synthetic test-data peak at 880 Hz is exactly the second harmonic of 440 Hz.' },
+    {
+      dominantFrequencyHz: 440,
+      topPeaksHz: [440, 880],
+      frequencyResolutionHz: 48000 / 4096,
+    },
+    'Synthetic test data.',
+  ));
 
   const invalidClaims = [
     ['CONTRAST_AS_NOISE', 'Peak-to-median contrast shows separation from the digital noise floor.'],
@@ -93,6 +117,9 @@ test('interpretation quality checks block unsupported acoustic claims and intern
     ['PRESSURE_OVERCLAIM', 'RMS indicates a consistent pressure variation.'],
     ['SOURCE_PROXIMITY', 'The source is likely proximal to the microphone.'],
     ['EXACT_HARMONIC_OVERCLAIM', 'The 880.5 Hz peak is exactly an octave above the fundamental.'],
+    ['EXACT_HARMONIC_OVERCLAIM', 'The 900 Hz peak is exactly the second harmonic of the 440.625 Hz peak.'],
+    ['UNVALIDATED_BIOACOUSTIC_CLASSIFICATION', 'This recording is a plant signal.'],
+    ['UNVALIDATED_BIOACOUSTIC_CLASSIFICATION', 'The sound is a leaf vibration.'],
     ['INTERNAL_ATTRIBUTION', 'ZIONCORE GENESIS SEED v1.0.0. Attribution: HRH SAINT TARIRO MASAWI.'],
     ['SYNTHETIC_LABEL_MISSING', 'A stable tone was captured and analyzed.'],
   ] as const;

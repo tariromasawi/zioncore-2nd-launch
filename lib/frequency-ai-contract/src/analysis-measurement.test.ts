@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   analysisMeasurementSchema,
   buildAnalysisPrompt,
+  deriveHarmonicPeakComparisons,
 } from './index';
 
 const baseMeasurement = {
@@ -39,9 +40,39 @@ test('analysis prompt carries the strict boundaries required by the live quality
   assert.match(prompt, /Mandatory final report audit/i);
   assert.match(prompt, /review every field, not only the summary/i);
   assert.match(prompt, /Do not infer source distance or microphone proximity/i);
-  assert.match(prompt, /never call a non-zero difference exact/i);
-  assert.match(prompt, /omit animal or environmental source candidates for synthetic or QA data/i);
+  assert.match(prompt, /A non-zero frequency difference is not exact/i);
+  assert.match(prompt, /omit source candidates for synthetic or QA data/i);
   assert.match(prompt, /confidenceScope must explicitly limit confidence/i);
+  assert.match(prompt, /qualitative, uncalibrated/i);
+  assert.match(prompt, /Deterministic peak comparison/i);
+});
+
+test('calculates harmonic candidates from supplied peaks and FFT resolution', () => {
+  assert.deepEqual(
+    deriveHarmonicPeakComparisons(440.625, [440.625, 880.5, 900], 48_000 / 4096),
+    [
+      {
+        measuredPeakHz: 880.5,
+        nearestHarmonicNumber: 2,
+        expectedFrequencyHz: 881.25,
+        absoluteDifferenceHz: 0.75,
+        withinFftResolution: true,
+        exactWithinNumericalTolerance: false,
+      },
+      {
+        measuredPeakHz: 900,
+        nearestHarmonicNumber: 2,
+        expectedFrequencyHz: 881.25,
+        absoluteDifferenceHz: 18.75,
+        withinFftResolution: false,
+        exactWithinNumericalTolerance: false,
+      },
+    ],
+  );
+  assert.equal(
+    deriveHarmonicPeakComparisons(440, [880], 11.7)[0]?.exactWithinNumericalTolerance,
+    true,
+  );
 });
 
 test('still validates the range of optional derived features when they are supplied', () => {

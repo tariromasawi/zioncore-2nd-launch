@@ -35,6 +35,7 @@ const environment = {
   ZIONCORE_AI_PRICING_VERSION: 'route-integration-v1',
   ZIONCORE_AI_INTERPRETATION_CREDITS: '35',
   ZIONCORE_AI_SPIRITUAL_INTERPRETATION_CREDITS: '60',
+  ZIONCORE_2ND_AI_GENERATION_ENABLED: 'true',
 } as NodeJS.ProcessEnv;
 
 const measurement: AnalysisMeasurement = {
@@ -132,13 +133,14 @@ const requestBody = {
 async function withServer(
   identityMiddleware: RequestHandler,
   run: (baseUrl: string) => Promise<void>,
+  serverEnvironment: NodeJS.ProcessEnv = environment,
 ) {
   const app = express();
   app.use(pinoHttp({ logger: pino({ level: 'silent' }) }));
   app.use(express.json());
   app.use(createAiInterpretationRouter({
     identityMiddleware,
-    environment,
+    environment: serverEnvironment,
     ledgerProvider: () => routeLedger,
     jobStoreProvider: () => createAiInterpretationJobStore(db),
     providerFactory,
@@ -245,6 +247,39 @@ function paidRequestHeaders(uid: string, quote: Awaited<ReturnType<typeof issueQ
     'x-zioncore-quote-token': quote.quoteToken,
   };
 }
+
+test('cloud interpretation fails closed while disabled and exposes no paid quote', async () => {
+  const uid = `ai-disabled-${randomUUID()}`;
+  const disabledEnvironment = {
+    ...environment,
+    ZIONCORE_2ND_AI_GENERATION_ENABLED: 'false',
+  } as NodeJS.ProcessEnv;
+  await withServer(createIdentityMiddleware(), async baseUrl => {
+    const pricing = await fetch(`${baseUrl}/ai/interpretation/pricing`);
+    assert.deepEqual(await pricing.json(), {
+      standardCredits: null,
+      spiritualCredits: null,
+      freeLocal: true,
+    });
+
+    const quote = await fetch(`${baseUrl}/ai/interpretation/quote`, {
+      headers: { authorization: `Bearer ${uid}` },
+    });
+    assert.equal(quote.status, 503);
+
+    const response = await fetch(`${baseUrl}/ai/interpretation`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${uid}`,
+        'content-type': 'application/json',
+        'idempotency-key': `disabled-${randomUUID()}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+    assert.equal(response.status, 503);
+    assert.equal(providerCalls.get(uid) ?? 0, 0);
+  }, disabledEnvironment);
+});
 
 test('paid interpretation quote, reserve, generation, settlement, replay, and failure release run through HTTP', async () => {
   const successUid = `paid-route-${randomUUID()}`;

@@ -3,10 +3,13 @@ import test from 'node:test';
 import {
   estimateProviderUsageMicroUsd,
   estimateGeminiAudioUsageMicroUsd,
+  assessGeminiPreflightBudget,
   buildGeminiJsonGenerationConfig,
+  GEMINI_ANALYSIS_MODEL,
   GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA,
   GEMINI_AUDIO_SEGMENT_RESPONSE_JSON_SCHEMA,
   GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS,
+  GeminiPreflightError,
   generateWithGeminiAudioSegment,
   getGeminiAnalysisModel,
   getGeminiCredentialSource,
@@ -17,6 +20,7 @@ import {
   GOOGLE_GENAI_ANALYSIS_MODEL,
 } from './ai-provider-clients';
 import { MAX_ANALYSIS_OUTPUT_TOKENS } from '@workspace/frequency-ai-contract';
+import { shouldFailOver } from './ai-provider-router';
 
 test('prefers the owner-provided Google API key and validates integration configuration', () => {
   assert.equal(
@@ -153,16 +157,68 @@ test('Gemini cost tracking covers the configured preview model and includes thin
     promptTokenCount: 17,
     candidatesTokenCount: 5,
     thoughtsTokenCount: 3,
+    totalTokenCount: 25,
   });
-  assert.deepEqual(usage, { inputTokens: 17, outputTokens: 8 });
+  assert.deepEqual(usage, {
+    inputTokens: 17,
+    outputTokens: 8,
+    candidateTokens: 5,
+    reasoningTokens: 3,
+    toolUsePromptTokens: null,
+    reportedTotalTokens: 25,
+    computedTotalTokens: 25,
+    totalTokensMatchBreakdown: true,
+  });
   assert.equal(
     estimateProviderUsageMicroUsd(GOOGLE_GENAI_ANALYSIS_MODEL, usage),
     33,
   );
+  const inconsistentUsage = normalizeGeminiUsage({
+    promptTokenCount: 5_901,
+    candidatesTokenCount: 4_282,
+    thoughtsTokenCount: 1_343,
+    toolUsePromptTokenCount: 0,
+    totalTokenCount: 10_183,
+  });
+  assert.equal(inconsistentUsage.outputTokens, 5_625, 'candidate and reasoning tokens are each counted once');
+  assert.equal(inconsistentUsage.computedTotalTokens, 11_526);
+  assert.equal(inconsistentUsage.totalTokensMatchBreakdown, false);
+  assert.equal(
+    estimateProviderUsageMicroUsd(GEMINI_ANALYSIS_MODEL, inconsistentUsage),
+    68_052,
+    'cost estimate uses prompt plus candidate/reasoning components, not the inconsistent aggregate',
+  );
   assert.deepEqual(
     normalizeGeminiUsage({ promptTokenCount: -1, candidatesTokenCount: 1.5 }),
-    { inputTokens: null, outputTokens: null },
+    {
+      inputTokens: null,
+      outputTokens: null,
+      candidateTokens: null,
+      reasoningTokens: null,
+      toolUsePromptTokens: null,
+      reportedTotalTokens: null,
+      computedTotalTokens: null,
+      totalTokensMatchBreakdown: null,
+    },
   );
+});
+
+test('Gemini preflight applies 25 percent headroom and blocks the observed undercount before generation', () => {
+  const observedEstimate = assessGeminiPreflightBudget(5_169);
+  assert.deepEqual(observedEstimate, {
+    allowed: false,
+    rawInputTokens: 5_169,
+    conservativeInputTokens: 6_462,
+    estimatedMaxCostMicroUsd: 94_844,
+    reason: 'input_limit',
+  });
+  const withinBudget = assessGeminiPreflightBudget(4_160);
+  assert.equal(withinBudget.allowed, true);
+  assert.equal(withinBudget.conservativeInputTokens, 5_200);
+  assert.equal(withinBudget.estimatedMaxCostMicroUsd, 92_320);
+  assert.equal(assessGeminiPreflightBudget(undefined).reason, 'invalid_count');
+  assert.equal(shouldFailOver(new GeminiPreflightError('input_limit')), false);
+  assert.equal(shouldFailOver(new GeminiPreflightError('unavailable')), false);
 });
 
 test('Gemini audio usage estimate applies the documented audio input rate conservatively', () => {

@@ -11,8 +11,8 @@ test('timeouts and termination signals cannot produce a green check even if the 
 });
 
 test('a release check includes types, unit tests, isolated identity/rules/accounting tests and both production builds', () => {
-  assert.equal(new Set(releaseChecks.map(check => check.id)).size, 10);
-  for (const command of ['typecheck', 'test:genesis', 'test:unit', 'test:auth', 'test:rules', 'test:wallet', 'build']) {
+  assert.equal(new Set(releaseChecks.map(check => check.id)).size, 11);
+  for (const command of ['typecheck', 'test:genesis', 'test:analysis-contract', 'test:unit', 'test:auth', 'test:rules', 'test:wallet', 'build']) {
     assert.ok(releaseChecks.some(check => check.args.includes(command)));
   }
   assert.equal(releaseChecks.filter(check => check.args.includes('build')).length, 2);

@@ -38,6 +38,7 @@ import {
   fingerprintAiInterpretationRequest,
 } from '../lib/ai-interpretation-jobs';
 import { getAIInterpretationPrice } from '../lib/ai-interpretation-pricing';
+import { isAiGenerationEnabled, requireAiGenerationEnabled } from '../lib/ai-generation-policy';
 import { issueServiceQuote, verifyServiceQuote } from '../lib/signed-service-quote';
 import { createAiJobFinancialAudit } from '../lib/ai-job-financial-audit';
 import { getFirebaseAdminApp } from '../lib/firebase-admin';
@@ -78,6 +79,12 @@ function providerUsageSummary(attempts: ProviderAttempt[]) {
     model: attempt.model,
     inputTokens: attempt.usage?.inputTokens ?? null,
     outputTokens: attempt.usage?.outputTokens ?? null,
+    candidateTokens: attempt.usage?.candidateTokens ?? null,
+    reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+    toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+    reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+    computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+    totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
     finishReason: attempt.finishReason,
     outputStatus: attempt.outputStatus,
     validationFailure: attempt.validationFailure ?? null,
@@ -86,6 +93,7 @@ function providerUsageSummary(attempts: ProviderAttempt[]) {
   const estimates = providers.map(provider => provider.estimatedCostMicroUsd);
   return {
     providerUsage: providers,
+    usageMetadataMismatch: providers.some(provider => provider.totalTokensMatchBreakdown === false),
     estimatedProviderCostMicroUsd: estimates.every(
       (estimate): estimate is number => estimate !== null,
     )
@@ -134,14 +142,15 @@ export function createAiInterpretationRouter(
 
 router.get('/ai/interpretation/pricing', (_req, res) => {
   res.set('Cache-Control', 'no-store');
+  const enabled = isAiGenerationEnabled(environment);
   res.json(GetPublicInterpretationPricingResponse.parse({
-    standardCredits: getAIInterpretationPrice(environment)?.credits ?? null,
-    spiritualCredits: getAIInterpretationPrice(environment, true)?.credits ?? null,
+    standardCredits: enabled ? getAIInterpretationPrice(environment)?.credits ?? null : null,
+    spiritualCredits: enabled ? getAIInterpretationPrice(environment, true)?.credits ?? null : null,
     freeLocal: true,
   }));
 });
 
-router.get('/ai/interpretation/quote', identityMiddleware, async (req, res) => {
+router.get('/ai/interpretation/quote', identityMiddleware, requireAiGenerationEnabled(environment), async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const uid = res.locals.firebaseUid;
   if (typeof uid !== 'string' || !uid) {
@@ -271,7 +280,7 @@ router.post('/ai/interpretation/recover', identityMiddleware, async (req, res) =
   }
 });
 
-router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
+router.post('/ai/interpretation', identityMiddleware, requireAiGenerationEnabled(environment), async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   const uid = res.locals.firebaseUid;
   if (typeof uid !== 'string' || !uid) {
@@ -526,9 +535,23 @@ router.post('/ai/interpretation', identityMiddleware, async (req, res) => {
         model: attempt.model,
         inputTokens: attempt.usage?.inputTokens ?? null,
         outputTokens: attempt.usage?.outputTokens ?? null,
+        candidateTokens: attempt.usage?.candidateTokens ?? null,
+        reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+        toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+        reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+        computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+        totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
         estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
       })),
     });
+    if (routed.attempts.some(attempt => attempt.usage?.totalTokensMatchBreakdown === false)) {
+      req.log.warn({
+        requestId: String(req.id),
+        provider: routed.provider,
+        model: routed.model,
+        usageMetadataMismatch: true,
+      }, 'AI provider aggregate token count does not match its detailed usage breakdown');
+    }
     if (financialAudit.estimatedProviderCostMicroUsd === null) {
       req.log.warn({
         service: financialAudit.service,

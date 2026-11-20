@@ -8,6 +8,18 @@ export type AIProvider = 'gemini' | 'openai';
 export type ProviderUsage = {
   inputTokens: number | null;
   outputTokens: number | null;
+  /** Gemini candidate output tokens, excluding hidden reasoning tokens. */
+  candidateTokens?: number | null;
+  /** Gemini reasoning tokens, included once in outputTokens for cost estimates. */
+  reasoningTokens?: number | null;
+  /** Tool-result tokens fed back into the model; included in inputTokens. */
+  toolUsePromptTokens?: number | null;
+  /** Provider-reported aggregate; diagnostic only, never added to component totals. */
+  reportedTotalTokens?: number | null;
+  /** Component total from the documented prompt/candidate/tool/thought breakdown. */
+  computedTotalTokens?: number | null;
+  /** Null means insufficient metadata; false flags provider aggregate inconsistency. */
+  totalTokensMatchBreakdown?: boolean | null;
 };
 
 export type ProviderOutput = {

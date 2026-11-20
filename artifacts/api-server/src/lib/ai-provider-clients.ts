@@ -19,6 +19,9 @@ export const ZIONCORE_2ND_VERTEX_PROJECT_ID = 'zioncore-2nd-production';
 export const ZIONCORE_2ND_VERTEX_LOCATION = 'eu';
 export const OPENAI_ANALYSIS_MODEL = 'gpt-5.4-mini';
 export const GEMINI_AUDIO_SEGMENT_MAX_OUTPUT_TOKENS = 256;
+export const GEMINI_PREFLIGHT_MAX_INPUT_TOKENS = 5_200;
+export const GEMINI_PREFLIGHT_SAFETY_MULTIPLIER = 1.25;
+export const GEMINI_PREFLIGHT_MAX_ESTIMATED_COST_MICRO_USD = 100_000;
 export const GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA =
   toGeminiResponseJsonSchema(explanationSchema);
 export const GEMINI_AUDIO_SEGMENT_RESPONSE_JSON_SCHEMA =
@@ -142,9 +145,9 @@ const conservativeStandardRatesUsdPerMillionTokens: Record<
   string,
   { input: number; output: number }
 > = {
-  // EU standard Gemini 3.8 Flash rates are $1.65/$8.25 after introductory
-  // pricing; retain $2/$10 as a conservative ceiling for cost accounting.
-  // https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing
+  // Google lists $0.75/$3.75 per 1M input/output tokens through 2026-12-31,
+  // then $1.50/$7.50. Keep $2/$10 as a conservative accounting ceiling.
+  // https://cloud.google.com/model-garden/pricing
   [GEMINI_ANALYSIS_MODEL]: { input: 2, output: 10 },
   // Google lists Gemini 3 Flash Preview at $0.50 input / $3.00 output per 1M tokens.
   // https://ai.google.dev/gemini-api/docs/pricing#gemini-3-flash-preview
@@ -170,19 +173,126 @@ export function normalizeGeminiUsage(metadata?: {
   promptTokenCount?: number;
   candidatesTokenCount?: number;
   thoughtsTokenCount?: number;
+  toolUsePromptTokenCount?: number;
+  totalTokenCount?: number;
 }): ProviderUsage {
-  const inputTokens = normalizeTokenCount(metadata?.promptTokenCount);
+  const promptTokens = normalizeTokenCount(metadata?.promptTokenCount);
   const candidatesTokens = normalizeTokenCount(metadata?.candidatesTokenCount);
   const thoughtsTokens = normalizeTokenCount(metadata?.thoughtsTokenCount);
+  const toolUsePromptTokens = normalizeTokenCount(metadata?.toolUsePromptTokenCount);
+  const reportedTotalTokens = normalizeTokenCount(metadata?.totalTokenCount);
   const outputTokens =
     candidatesTokens === undefined && thoughtsTokens === undefined
       ? undefined
       : (candidatesTokens ?? 0) + (thoughtsTokens ?? 0);
+  const inputTokens = promptTokens === undefined && toolUsePromptTokens === undefined
+    ? undefined
+    : (promptTokens ?? 0) + (toolUsePromptTokens ?? 0);
+  const computedTotalTokens =
+    promptTokens === undefined &&
+    candidatesTokens === undefined &&
+    thoughtsTokens === undefined &&
+    toolUsePromptTokens === undefined
+      ? undefined
+      : (promptTokens ?? 0) +
+        (candidatesTokens ?? 0) +
+        (thoughtsTokens ?? 0) +
+        (toolUsePromptTokens ?? 0);
+  const safeComputedTotalTokens = normalizeTokenCount(computedTotalTokens);
+  const safeInputTokens = normalizeTokenCount(inputTokens);
 
   return {
-    inputTokens: inputTokens ?? null,
+    inputTokens: safeInputTokens ?? null,
     outputTokens: Number.isSafeInteger(outputTokens) ? outputTokens! : null,
+    candidateTokens: candidatesTokens ?? null,
+    reasoningTokens: thoughtsTokens ?? null,
+    toolUsePromptTokens: toolUsePromptTokens ?? null,
+    reportedTotalTokens: reportedTotalTokens ?? null,
+    computedTotalTokens: safeComputedTotalTokens ?? null,
+    totalTokensMatchBreakdown:
+      reportedTotalTokens === undefined || safeComputedTotalTokens === undefined
+        ? null
+        : reportedTotalTokens === safeComputedTotalTokens,
   };
+}
+
+export type GeminiPreflightAssessment = {
+  allowed: boolean;
+  rawInputTokens: number | null;
+  conservativeInputTokens: number | null;
+  estimatedMaxCostMicroUsd: number | null;
+  reason: 'allowed' | 'invalid_count' | 'input_limit' | 'estimated_cost_limit';
+};
+
+/**
+ * CountTokens is only an estimate. The 25% margin exceeds the 14.2% observed
+ * undercount, and the fixed input/output cost ceiling fails closed before
+ * generation. Neither this check nor a Cloud Billing alert is a provider-side
+ * hard spending cap.
+ */
+export function assessGeminiPreflightBudget(
+  rawInputTokens: number | undefined,
+): GeminiPreflightAssessment {
+  const normalizedInputTokens = normalizeTokenCount(rawInputTokens);
+  if (normalizedInputTokens === undefined || normalizedInputTokens === 0) {
+    return {
+      allowed: false,
+      rawInputTokens: null,
+      conservativeInputTokens: null,
+      estimatedMaxCostMicroUsd: null,
+      reason: 'invalid_count',
+    };
+  }
+  const conservativeInputTokens = Math.ceil(
+    normalizedInputTokens * GEMINI_PREFLIGHT_SAFETY_MULTIPLIER,
+  );
+  const estimatedMaxCostMicroUsd = Math.ceil(
+    conservativeInputTokens * 2 +
+    MAX_ANALYSIS_OUTPUT_TOKENS * 10,
+  );
+  if (!Number.isSafeInteger(conservativeInputTokens) || !Number.isSafeInteger(estimatedMaxCostMicroUsd)) {
+    return {
+      allowed: false,
+      rawInputTokens: normalizedInputTokens,
+      conservativeInputTokens: null,
+      estimatedMaxCostMicroUsd: null,
+      reason: 'invalid_count',
+    };
+  }
+  if (conservativeInputTokens > GEMINI_PREFLIGHT_MAX_INPUT_TOKENS) {
+    return {
+      allowed: false,
+      rawInputTokens: normalizedInputTokens,
+      conservativeInputTokens,
+      estimatedMaxCostMicroUsd,
+      reason: 'input_limit',
+    };
+  }
+  if (estimatedMaxCostMicroUsd > GEMINI_PREFLIGHT_MAX_ESTIMATED_COST_MICRO_USD) {
+    return {
+      allowed: false,
+      rawInputTokens: normalizedInputTokens,
+      conservativeInputTokens,
+      estimatedMaxCostMicroUsd,
+      reason: 'estimated_cost_limit',
+    };
+  }
+  return {
+    allowed: true,
+    rawInputTokens: normalizedInputTokens,
+    conservativeInputTokens,
+    estimatedMaxCostMicroUsd,
+    reason: 'allowed',
+  };
+}
+
+export class GeminiPreflightError extends Error {
+  readonly code = 'AI_PREFLIGHT_REJECTED';
+
+  constructor(readonly reason: GeminiPreflightAssessment['reason'] | 'unavailable') {
+    super('Gemini request did not pass its non-billable preflight budget check.');
+    this.name = 'GeminiPreflightError';
+  }
 }
 
 export function estimateProviderUsageMicroUsd(
@@ -241,9 +351,32 @@ export async function generateWithGemini(
   const model = getGeminiAnalysisModel();
   return withProviderDeadline(async (signal) => {
     const ai = await getGeminiClient();
+    const contents = [{ role: 'user' as const, parts: [{ text: prompt }] }];
+    let tokenCount: number | undefined;
+    try {
+      const counted = await ai.models.countTokens({
+        model,
+        contents,
+        config: {
+          abortSignal: signal,
+          generationConfig: {
+            maxOutputTokens: MAX_ANALYSIS_OUTPUT_TOKENS,
+            responseMimeType: 'application/json',
+            responseJsonSchema: GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA,
+          },
+        },
+      });
+      tokenCount = counted.totalTokens;
+    } catch {
+      // A failed or unavailable preflight must never fall through to generation
+      // or an automatic paid-provider fallback.
+      throw new GeminiPreflightError('unavailable');
+    }
+    const preflight = assessGeminiPreflightBudget(tokenCount);
+    if (!preflight.allowed) throw new GeminiPreflightError(preflight.reason);
     const stream = await ai.models.generateContentStream({
       model,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents,
       config: buildGeminiJsonGenerationConfig(
         signal,
         GEMINI_ANALYSIS_RESPONSE_JSON_SCHEMA,
@@ -275,7 +408,16 @@ export async function generateWithGemini(
     operation: context.operation ?? 'text-interpretation',
     usageOf: (result) => {
       const usage = (result as ProviderOutput | null)?.usage;
-      return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
+      return usage ? {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        candidateTokens: usage.candidateTokens,
+        reasoningTokens: usage.reasoningTokens,
+        toolUsePromptTokens: usage.toolUsePromptTokens,
+        reportedTotalTokens: usage.reportedTotalTokens,
+        computedTotalTokens: usage.computedTotalTokens,
+        totalTokensMatchBreakdown: usage.totalTokensMatchBreakdown,
+      } : null;
     },
     finishReasonOf: result => (result as ProviderOutput | null)?.finishReason,
   });
@@ -331,7 +473,16 @@ export async function generateWithGeminiAudioSegment(
     operation: context.operation ?? 'audio-interpretation',
     usageOf: (result) => {
       const usage = (result as ProviderOutput | null)?.usage;
-      return usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens } : null;
+      return usage ? {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        candidateTokens: usage.candidateTokens,
+        reasoningTokens: usage.reasoningTokens,
+        toolUsePromptTokens: usage.toolUsePromptTokens,
+        reportedTotalTokens: usage.reportedTotalTokens,
+        computedTotalTokens: usage.computedTotalTokens,
+        totalTokensMatchBreakdown: usage.totalTokensMatchBreakdown,
+      } : null;
     },
     finishReasonOf: result => (result as ProviderOutput | null)?.finishReason,
   });

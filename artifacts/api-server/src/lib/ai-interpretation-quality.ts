@@ -1,4 +1,7 @@
-import type { AnalysisMeasurement } from '@workspace/frequency-ai-contract';
+import {
+  deriveHarmonicPeakComparisons,
+  type AnalysisMeasurement,
+} from '@workspace/frequency-ai-contract';
 
 export type InterpretationQualityCode =
   | 'INTERNAL_ATTRIBUTION'
@@ -49,10 +52,10 @@ function hasNegatedClaim(sentence: string, claim: RegExp): boolean {
 }
 
 const bioacousticSourceTerms =
-  /\b(?:animals?|species|wildlife|bird|birds|bat|bats|whale|whales|dolphin|dolphins|frog|frogs|amphibians?|insect|insects|mammal|mammals|walruses?|seals?|fish|avian|canine|feline|wolf|wolves|fox|foxes|deer|owl|owls|crow|crows|raven|ravens|sparrow|sparrows|songbird|songbirds|vocali[sz]ation|birdsong|rain|wind|water|river|stream|traffic|vehicle|engine|footsteps|machine|alarm|siren|thunder|thunderstorm|storm|geyser|geothermal|fumarole|wildfire|fire|weather)\b/i;
+  /\b(?:animals?|species|wildlife|bird|birds|bat|bats|whale|whales|dolphin|dolphins|frog|frogs|amphibians?|insect|insects|mammal|mammals|walruses?|seals?|fish|avian|canine|feline|wolf|wolves|fox|foxes|deer|owl|owls|crow|crows|raven|ravens|sparrow|sparrows|songbird|songbirds|vocali[sz]ation|birdsong|plants?|trees?|leaves?|leaf|flowers?|vegetation|fungi|fungus|microbes?|microbial|bacteria|biological|biogenic|rain|wind|water|river|stream|traffic|vehicle|engine|footsteps|machine|alarm|siren|thunder|thunderstorm|storm|geyser|geothermal|fumarole|wildfire|fire|weather)\b/i;
 
 const explicitSourceAssertion =
-  /\b(?:identified|confirmed|verified|classified|determined|proven|recognized|recognised)\s+(?:as|to be)\b|\b(?:this|the|a|an)\s+(?:recording|audio|clip|sound|signal|event|capture|call|vocali[sz]ation|source|species)\s+(?:is|was|contains|includes|captures|records|comes from|originates from|was produced by|was made by)\b|\b(?:a|an|the)\s+(?:[\w-]+\s+){0,2}(?:bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|animal|species|vocali[sz]ation)\s+(?:call|song|vocali[sz]ation|chorus)\b|\b(?:i|we|the model|zioncore)\s+(?:hear|heard|detected|identified|recognized|recognised)\b/i;
+  /\b(?:identified|confirmed|verified|classified|determined|proven|recognized|recognised)\s+(?:as|to be)\b|\b(?:this|the|a|an)\s+(?:recording|audio|clip|sound|signal|event|capture|call|vocali[sz]ation|source|species|plant|leaf|flower|tree|organism)\s+(?:is|was|contains|includes|captures|records|comes from|originates from|was produced by|was made by)\b|\b(?:a|an|the)\s+(?:[\w-]+\s+){0,2}(?:bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|animal|species|vocali[sz]ation|plant|leaf|flower|tree|fungus|microbe)\s+(?:call|song|vocali[sz]ation|chorus|signal|response)\b|\b(?:i|we|the model|zioncore)\s+(?:hear|heard|detected|identified|recognized|recognised)\b/i;
 
 const animalEventAssertion =
   /\b(?:animals?|birds?|bats?|whales?|dolphins?|frogs?|amphibians?|walruses?|seals?|insects?|mammals?|fish|wolves?|foxes?|deer|owls?|crows?|ravens?|sparrows?|songbirds?|vocali[sz]ations?|birdsong)\b[\s\S]{0,45}\b(?:chirp(?:ing|ed)?|sing(?:ing)?|call(?:ing|ed)?|howl(?:ing|ed)?|bark(?:ing|ed)?|growl(?:ing|ed)?|meow(?:ing|ed)?|purr(?:ing|ed)?|roar(?:ing|ed)?|quack(?:ing|ed)?|coo(?:ing|ed)?|hoot(?:ing|ed)?|tweet(?:ing|ed)?|croak(?:ing|ed)?|buzz(?:ing|ed)?|click(?:ing|ed)?|echolocat(?:e|es|ing|ed))\b/i;
@@ -61,13 +64,13 @@ const environmentalEventAssertion =
   /\b(?:rain|wind|water|river|stream|traffic|vehicle|engine|footsteps|machine|alarm|siren|thunder|thunderstorm|storm|geyser|geothermal|fumarole|wildfire|fire|weather)\b[\s\S]{0,45}\b(?:falling|blowing|flowing|rushing|passing|running|idling|echoing|sounding|wailing|rumbling|raining|storming|beeping|ringing|roaring|erupting|crackling|burning)\b/i;
 
 const animalIntentAssertion =
-  /\b(?:animal|species|bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|mammal|fish|wolf|fox|deer|owl|crow|raven|sparrow|wildlife)\b[\s\S]{0,80}\b(?:says|means|warns|communicates|intends|wants|asks|tells|instructs|is telling|is warning|is communicating)\b|\b(?:message|warning|instruction)\b[\s\S]{0,60}\b(?:from|by|through)\s+(?:an?\s+)?(?:animal|species|bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|mammal|fish|wildlife)\b|\b(?:animal|species|bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|mammal|fish|wolf|fox|deer|owl|crow|raven|sparrow|wildlife)s?\b[\s\S]{0,45}\b(?:is|are|was|were)\s+(?:singing|calling|mating|feeding|migrating|nesting|hunting|communicating|warning|distressed|territorial)\b/i;
+  /\b(?:animal|species|bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|mammal|fish|wolf|fox|deer|owl|crow|raven|sparrow|wildlife|plant|tree|leaf|flower|fungus|microbe|organism)\b[\s\S]{0,80}\b(?:says|means|warns|communicates|intends|wants|asks|tells|instructs|is telling|is warning|is communicating)\b|\b(?:message|warning|instruction)\b[\s\S]{0,60}\b(?:from|by|through)\s+(?:an?\s+)?(?:animal|species|bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|mammal|fish|wildlife|plant|tree|leaf|flower|fungus|microbe|organism)\b|\b(?:animal|species|bird|bat|whale|dolphin|frog|amphibian|walrus|seal|insect|mammal|fish|wolf|fox|deer|owl|crow|raven|sparrow|wildlife|plant|tree|leaf|flower|fungus|microbe|organism)s?\b[\s\S]{0,45}\b(?:is|are|was|were)\s+(?:singing|calling|mating|feeding|migrating|nesting|hunting|communicating|warning|distressed|territorial|signaling|signalling|responding)\b/i;
 
 const explicitUncertainty =
   /\b(?:possible|possibly|maybe|perhaps|may|might|could|tentative|hypothesis|hypothetical|candidate|unverified|unconfirmed|uncertain|unknown|unidentified|unvalidated|not validated|not verified|not confirmed|not identified|not independently verified|not proof|not evidence|no reference|without a reference|cannot identify|cannot confirm|cannot determine|not enough evidence|insufficient evidence|resembles?|consistent with|compatible with|sounds? like|appears? to be|seems? to be|bird[- ]like|animal[- ]like|environmental[- ]sound hypothesis)\b/i;
 
 const explicitBioacousticNegation =
-  /\b(?:no|not|never|cannot|can't|does not|doesn't|is not|isn't|was not|wasn't|are not|aren't|were not|weren't)\b[\s\S]{0,60}\b(?:animals?|species|wildlife|birds?|bats?|whales?|dolphins?|frogs?|amphibians?|walruses?|seals?|insects?|mammals?|fish|wolves?|foxes?|deer|owls?|crows?|ravens?|sparrows?|vocali[sz]ations?|rain|wind|water|river|stream|traffic|vehicle|engine|footsteps|machine|alarm|siren|thunder|thunderstorm|storm|geyser|geothermal|fumarole|wildfire|fire|weather|identified|confirmed|verified|classified|detected|present|singing|calling|warning|communicating)\b/i;
+  /\b(?:no|not|never|cannot|can't|does not|doesn't|is not|isn't|was not|wasn't|are not|aren't|were not|weren't)\b[\s\S]{0,60}\b(?:animals?|species|wildlife|birds?|bats?|whales?|dolphins?|frogs?|amphibians?|walruses?|seals?|insects?|mammals?|fish|wolves?|foxes?|deer|owls?|crows?|ravens?|sparrows?|vocali[sz]ations?|plants?|trees?|leaves?|flowers?|vegetation|fungi|fungus|microbes?|microbial|bacteria|biological|organisms?|rain|wind|water|river|stream|traffic|vehicle|engine|footsteps|machine|alarm|siren|thunder|thunderstorm|storm|geyser|geothermal|fumarole|wildfire|fire|weather|identified|confirmed|verified|classified|detected|present|singing|calling|warning|communicating)\b/i;
 
 function getBioacousticClaimViolations(value: unknown): InterpretationQualityCode[] {
   const violations = new Set<InterpretationQualityCode>();
@@ -207,18 +210,17 @@ export function assertAiInterpretationQuality(
 
   const fundamental = measurement.dominantFrequencyHz;
   if (fundamental !== null && fundamental > 0) {
-    const hasNearHarmonicBin = measurement.topPeaksHz.some(peak => {
-      if (peak <= fundamental) return false;
-      const harmonicNumber = Math.round(peak / fundamental);
-      if (harmonicNumber < 2) return false;
-      const mismatchHz = Math.abs(peak - (harmonicNumber * fundamental));
-      return mismatchHz > 0.000001 && mismatchHz <= measurement.frequencyResolutionHz;
-    });
-    if (
-      hasNearHarmonicBin &&
-      /\b(?:exactly|precisely|perfectly|an exact)\b[\s\S]{0,60}\b(?:double|doubling|harmonic|octave)\b|\b(?:double|doubling|harmonic|octave)\b[\s\S]{0,60}\b(?:exactly|precisely|perfectly|exact)\b/i.test(text) &&
-      !/\b(?:not exactly|not precisely|not a perfect|not an exact)\b/i.test(text)
-    ) {
+    const hasNonExactHarmonicPeak = deriveHarmonicPeakComparisons(
+      fundamental,
+      measurement.topPeaksHz,
+      measurement.frequencyResolutionHz,
+    ).some(comparison => !comparison.exactWithinNumericalTolerance);
+    const exactHarmonicClaim =
+      /\b(?:exactly|precisely|perfectly|an exact)\b[\s\S]{0,60}\b(?:double|doubling|harmonic|octave)\b|\b(?:double|doubling|harmonic|octave)\b[\s\S]{0,60}\b(?:exactly|precisely|perfectly|exact)\b/i;
+    if (hasNonExactHarmonicPeak && sentences.some(sentence =>
+      exactHarmonicClaim.test(sentence) &&
+      !/\b(?:not exactly|not precisely|not a perfect|not an exact)\b/i.test(sentence),
+    )) {
       codes.add('EXACT_HARMONIC_OVERCLAIM');
     }
   }

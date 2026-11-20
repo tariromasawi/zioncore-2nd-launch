@@ -4,6 +4,12 @@ export type AiJobProviderUsage = {
   inputTokens: number | null;
   outputTokens: number | null;
   estimatedCostMicroUsd: number | null;
+  candidateTokens?: number | null;
+  reasoningTokens?: number | null;
+  toolUsePromptTokens?: number | null;
+  reportedTotalTokens?: number | null;
+  computedTotalTokens?: number | null;
+  totalTokensMatchBreakdown?: boolean | null;
 };
 
 export type AiJobFinancialAudit = {

@@ -128,13 +128,28 @@ generation.
   candidate tokens and 1,343 reasoning tokens (provider `totalTokenCount`:
   10,183). Thus the final request exceeded the separately authorized 5,200
   input-token limit by 701 tokens. The preflight undercounted actual usage by
-  732 tokens; its precise provider-side cause is not established. This was an
-  execution-control failure. No further generation is authorized or will run
-  until the discrepancy is resolved and the owner separately authorizes it.
+  732 tokens. A source-level comparison found that the same prompt contents and
+  structured response schema/configuration were passed to CountTokens and
+  generation; no local payload difference explains the gap. Google's CountTokens
+  documentation describes a prompt-token estimate, but does not document a
+  guaranteed equality with post-generation `promptTokenCount`. The precise
+  provider-side cause remains unresolved; do not treat CountTokens as a hard
+  spending or authorization limit. No further generation is authorized.
+- Google's current GenerateContentResponse reference defines
+  `totalTokenCount` as prompt + candidate + tool-use prompt + reasoning tokens.
+  The returned aggregate (10,183) equals prompt + candidates and omits the
+  separately reported 1,343 reasoning tokens; the documented component total
+  is 11,526. Application accounting now retains both aggregates, flags this
+  mismatch, and estimates cost from prompt + tool-use input plus candidate +
+  reasoning output exactly once. It never adds the provider aggregate to those
+  components. The returned metadata therefore remains internally inconsistent
+  and is a diagnostic limitation.
 - Conservative estimated cost including reasoning tokens: **US$0.068052**
-  at the application's $2/$10-per-million rates. This is an estimate, not an
-  invoice or hard spend cap. Current accrued project spend was not available
-  from the Budgets API.
+  using the application's $2/$10-per-million accounting ceiling. Google's
+  public model pricing lists introductory Gemini 3.8 Flash rates of $0.75/$3.75
+  per million input/output tokens through 2026-12-31 and standard rates of
+  $1.50/$7.50 afterward. This estimate is not an invoice or hard spend cap.
+  Current accrued project spend was not available from the Budgets API.
 - The verified £1/month alert budget and its 25%, 50%, 90%, 100% current-spend
   and 100% forecast alerts remained unchanged; the budget is not a spend cap.
 - The bootstrap identity's temporary `roles/iam.serviceAccountTokenCreator`
@@ -142,11 +157,46 @@ generation.
   independently verified absent. No credentials, tokens, prompt text, response
   text or customer data were written to logs or source.
 
-The generation-quality failure is now covered by a stronger final prompt audit
-and a regression test for all four rejection categories. These local changes
-have not been verified by another billable generation. Any additional live
-generation requires fresh owner authorization. This test does not verify Cloud
-Run's production ADC, a saved customer report, or live application delivery.
+The generation-quality failure is addressed in source without lowering the
+quality gate:
+
+- Proximity/distance statements remain rejected because the current measurement
+  contract contains no calibrated distance or sound-pressure evidence.
+- Harmonic comparisons are now calculated deterministically from measured peaks,
+  the nearest integer multiple and the FFT resolution. A non-zero difference is
+  never described as exact; unsupported exact claims are rejected even when the
+  difference exceeds one FFT bin.
+- Animal and biological source claims, including plant, leaf, flower, fungus and
+  microbial labels, remain unverified hypotheses unless suitable independent
+  evidence exists. The model cannot turn derived features into confirmed IDs.
+- Numeric model confidence is no longer converted into arbitrary low/moderate/
+  high bands. The report uses qualitative, explicitly uncalibrated categories;
+  scope overclaims remain rejected.
+
+The text-generation adapter now performs a non-billable CountTokens preflight
+with the same prompt, structured response schema, and generation configuration.
+It applies 25% headroom against the authorized 5,200 input-token ceiling and a
+US$0.10 estimated per-request ceiling using the conservative $2/$10 rates and
+maximum output budget. The observed 5,169-token estimate therefore fails before
+generation (conservative estimate 6,462); a missing or failed preflight also
+fails closed and is not sent to the fallback provider. The guard is an
+application-level estimate, not a provider-enforced or account-level spending
+cap. Google's CountTokens documentation states the endpoint itself is not
+charged; it remains subject to service availability and request limits.
+
+Cloud AI generation defaults to disabled
+(`ZIONCORE_2ND_AI_GENERATION_ENABLED=false`), and audio generation additionally
+requires its own explicit flag
+(`ZIONCORE_2ND_AI_AUDIO_GENERATION_ENABLED=false`). While disabled, the API
+exposes no paid AI quote and returns 503 before wallet reservation or provider
+calls. Local analysis remains available. Enabling either cloud feature requires
+a separate owner decision after quality and financial controls are accepted.
+Mocked and deterministic regression tests cover these boundaries, token
+breakdown, the inconsistent aggregate, preflight rejection and cost estimation.
+The complete 11-step local release suite passed after these changes, including
+typechecks, unit/emulator tests and frontend/API production builds. No additional
+live generation was performed. This work does not verify Cloud Run's production
+ADC, a saved customer report, or live application delivery.
 
 The optional OpenAI Secret Manager resource has no enabled version. No Gemini
 or OpenAI key was copied from the Replit workspace. The project reports an
@@ -206,6 +256,20 @@ billing, and Google Gemini AI. Keep credentials in the independent deployment's
 secret manager and validate every provider after a hosting change. Do not claim
 these services are live until they have been exercised through the deployed
 standalone application.
+
+For Gemini token accounting, preserve the detailed usage fields and compare
+provider-reported totals to the documented component sum. CountTokens is a
+preflight estimate, not a guaranteed spending cap; the current implementation
+fails closed above a 5,200-token input budget after 25% headroom or above its
+US$0.10 estimated maximum. Keep cloud generation disabled until a separately
+authorized request verifies that the report meets the quality gate.
+
+Official references:
+
+- [GenerateContentResponse usage metadata](https://docs.cloud.google.com/gemini-enterprise-agent-platform/reference/rest/v1/GenerateContentResponse)
+- [Count Tokens API](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/get-token-count)
+- [Gemini thinking token billing](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/thinking#pricing)
+- [Google Cloud model pricing](https://cloud.google.com/model-garden/pricing)
 
 For Cloud Run, Firebase Admin uses Application Default Credentials only when
 `ZIONCORE_2ND_ADMIN_AUTH_MODE=adc` and the runtime service is

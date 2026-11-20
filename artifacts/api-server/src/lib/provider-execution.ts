@@ -7,6 +7,12 @@ export const MAX_PROVIDER_RESPONSE_CHARACTERS = 262_144;
 export type ProviderUsageSummary = {
   inputTokens: number | null;
   outputTokens: number | null;
+  candidateTokens?: number | null;
+  reasoningTokens?: number | null;
+  toolUsePromptTokens?: number | null;
+  reportedTotalTokens?: number | null;
+  computedTotalTokens?: number | null;
+  totalTokensMatchBreakdown?: boolean | null;
 };
 
 export type ProviderAttemptTelemetry = {

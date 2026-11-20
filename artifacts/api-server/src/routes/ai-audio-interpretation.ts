@@ -59,6 +59,7 @@ import { getFirebaseAdminApp } from '../lib/firebase-admin';
 import { createAiJobFinancialAudit } from '../lib/ai-job-financial-audit';
 import { requireFirebaseIdentity } from '../middlewares/firebase-identity';
 import type { ProviderUsage } from '../lib/ai-provider-router';
+import { requireAiAudioGenerationEnabled } from '../lib/ai-generation-policy';
 
 const router: IRouter = Router();
 const audioRequestGuard = createAIRequestGuard({ cooldownMs: 30_000, maxConcurrent: 2 });
@@ -119,6 +120,12 @@ function safeProviderAttemptLog(error: AIProvidersUnavailableError) {
     model: attempt.model,
     inputTokens: attempt.usage?.inputTokens ?? null,
     outputTokens: attempt.usage?.outputTokens ?? null,
+    candidateTokens: attempt.usage?.candidateTokens ?? null,
+    reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+    toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+    reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+    computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+    totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
     finishReason: attempt.finishReason,
     outputStatus: attempt.outputStatus,
     validationFailure: attempt.validationFailure ?? null,
@@ -227,13 +234,27 @@ function summarizeAudioReview(insights: AudioSegmentInsight[]) {
 }
 
 function totalUsage(usage: ProviderUsage[]) {
-  const sum = (key: 'inputTokens' | 'outputTokens') => {
+  const sum = (key: 'inputTokens' | 'outputTokens' | 'candidateTokens' | 'reasoningTokens' | 'toolUsePromptTokens' | 'reportedTotalTokens' | 'computedTotalTokens') => {
     const values = usage.map(item => item[key]);
     return values.every((value): value is number => typeof value === 'number')
       ? values.reduce((total, value) => total + value, 0)
       : null;
   };
-  return { inputTokens: sum('inputTokens'), outputTokens: sum('outputTokens') };
+  const reconciliation = usage.map(item => item.totalTokensMatchBreakdown);
+  return {
+    inputTokens: sum('inputTokens'),
+    outputTokens: sum('outputTokens'),
+    candidateTokens: sum('candidateTokens'),
+    reasoningTokens: sum('reasoningTokens'),
+    toolUsePromptTokens: sum('toolUsePromptTokens'),
+    reportedTotalTokens: sum('reportedTotalTokens'),
+    computedTotalTokens: sum('computedTotalTokens'),
+    totalTokensMatchBreakdown: reconciliation.every(
+      (value): value is boolean => typeof value === 'boolean',
+    )
+      ? reconciliation.every(Boolean)
+      : null,
+  };
 }
 
 function audioJsonParser(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -258,7 +279,7 @@ function getJobs() {
   return createAiInterpretationJobStore(getFirestore(getFirebaseAdminApp()));
 }
 
-router.get('/ai/interpretation/audio-quote', requireFirebaseIdentity, async (req, res): Promise<void> => {
+router.get('/ai/interpretation/audio-quote', requireFirebaseIdentity, requireAiAudioGenerationEnabled(), async (req, res): Promise<void> => {
   res.set('Cache-Control', 'private, no-store');
   const uid = res.locals.firebaseUid;
   if (typeof uid !== 'string' || !uid) {
@@ -315,6 +336,7 @@ router.get('/ai/interpretation/audio-quote', requireFirebaseIdentity, async (req
 router.post(
   '/ai/interpretation/audio',
   requireFirebaseIdentity,
+  requireAiAudioGenerationEnabled(),
   audioJsonParser,
   async (req, res): Promise<void> => {
     res.set('Cache-Control', 'private, no-store');
@@ -599,6 +621,12 @@ router.post(
             model: audioReviewResult.model,
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
+            candidateTokens: usage.candidateTokens ?? null,
+            reasoningTokens: usage.reasoningTokens ?? null,
+            toolUsePromptTokens: usage.toolUsePromptTokens ?? null,
+            reportedTotalTokens: usage.reportedTotalTokens ?? null,
+            computedTotalTokens: usage.computedTotalTokens ?? null,
+            totalTokensMatchBreakdown: usage.totalTokensMatchBreakdown ?? null,
             estimatedCostMicroUsd: estimateGeminiAudioUsageMicroUsd(audioReviewResult.model, usage),
           })),
           ...routed.attempts.map(attempt => ({
@@ -606,6 +634,12 @@ router.post(
             model: attempt.model,
             inputTokens: attempt.usage?.inputTokens ?? null,
             outputTokens: attempt.usage?.outputTokens ?? null,
+            candidateTokens: attempt.usage?.candidateTokens ?? null,
+            reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+            toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+            reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+            computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+            totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
             estimatedCostMicroUsd: estimateProviderUsageMicroUsd(attempt.model, attempt.usage),
           })),
         ],
@@ -645,11 +679,21 @@ router.post(
         durationMs: Date.now() - startedAt,
         creditsCharged: price.credits,
         responseStatus: 'validated',
+        usageMetadataMismatch: [
+          ...audioReviewResult.usage,
+          ...routed.attempts.map(attempt => attempt.usage).filter((value): value is ProviderUsage => Boolean(value)),
+        ].some(usage => usage.totalTokensMatchBreakdown === false),
         providerUsage: routed.attempts.map(attempt => ({
           provider: attempt.provider,
           model: attempt.model,
           inputTokens: attempt.usage?.inputTokens ?? null,
           outputTokens: attempt.usage?.outputTokens ?? null,
+          candidateTokens: attempt.usage?.candidateTokens ?? null,
+          reasoningTokens: attempt.usage?.reasoningTokens ?? null,
+          toolUsePromptTokens: attempt.usage?.toolUsePromptTokens ?? null,
+          reportedTotalTokens: attempt.usage?.reportedTotalTokens ?? null,
+          computedTotalTokens: attempt.usage?.computedTotalTokens ?? null,
+          totalTokensMatchBreakdown: attempt.usage?.totalTokensMatchBreakdown ?? null,
           finishReason: attempt.finishReason,
           outputStatus: attempt.outputStatus,
           validationFailure: attempt.validationFailure ?? null,

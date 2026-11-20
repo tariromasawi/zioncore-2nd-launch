@@ -12,6 +12,7 @@ test('public approved pricing needs no identity, wallet, provider or payment ope
       ZIONCORE_AI_INTERPRETATION_CREDITS: '100',
       ZIONCORE_AI_SPIRITUAL_INTERPRETATION_CREDITS: '200',
       ZIONCORE_AI_PRICING_VERSION: 'service-catalog-v2',
+      ZIONCORE_2ND_AI_GENERATION_ENABLED: 'true',
     },
     identityMiddleware: (_req, res) => { privilegedCalls++; res.sendStatus(401); },
     ledgerProvider: () => { privilegedCalls++; throw new Error('Wallet must not be touched.'); },
